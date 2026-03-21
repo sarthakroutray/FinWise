@@ -207,10 +207,11 @@ export function Layout() {
           <div className={cn(
             "hidden md:flex items-center flex-1 max-w-md rounded-full px-3 py-1.5 border transition-all",
             isDark 
-              ? "bg-slate-800/50 border-slate-700/50 focus-within:border-indigo-500/50 focus-within:bg-slate-800" 
-              : "bg-slate-100 border-slate-200 focus-within:border-indigo-400 focus-within:bg-white focus-within:shadow-sm",
-            searchFocused && "ring-2 ring-indigo-500/20"
-          )}>
+              ? "bg-slate-800/50 border-slate-700/50 focus-within:bg-slate-800" 
+              : "bg-slate-100 border-slate-200 focus-within:bg-white focus-within:shadow-sm",
+          )}
+          style={searchFocused ? { borderColor: `rgba(${ac.rgb},0.5)`, boxShadow: `0 0 0 2px rgba(${ac.rgb},0.2)` } : undefined}
+          >
             <Search className={cn("h-4 w-4", isDark ? "text-slate-400" : "text-slate-400")} />
             <input
               type="text"
@@ -237,8 +238,11 @@ export function Layout() {
               onClick={toggleTheme}
               className={cn(
                 "p-2 rounded-full transition-all",
-                isDark ? "text-slate-400 hover:text-amber-400 hover:bg-slate-800" : "text-slate-500 hover:text-indigo-600 hover:bg-slate-100"
+                isDark ? "text-slate-400 hover:text-amber-400 hover:bg-slate-800" : "text-slate-500 hover:bg-slate-100"
               )}
+              style={!isDark ? { ['--hover-color' as any]: ac[600] } : undefined}
+              onMouseEnter={(e) => { if (!isDark) e.currentTarget.style.color = ac[600]; }}
+              onMouseLeave={(e) => { if (!isDark) e.currentTarget.style.color = ''; }}
               title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
             >
               <AnimatePresence mode="wait">
@@ -285,21 +289,20 @@ export function Layout() {
                   >
                     <div className={cn("flex items-center justify-between px-4 py-3 border-b", isDark ? "border-slate-800" : "border-slate-100")}>
                       <h3 className={cn("text-sm font-semibold", isDark ? "text-slate-200" : "text-slate-800")}>Notifications</h3>
-                      <button className="text-xs text-indigo-400 hover:text-indigo-300">Mark all read</button>
+                      <button className="text-xs hover:opacity-80 transition-opacity" style={{ color: ac[400] }}>Mark all read</button>
                     </div>
                     <div className="max-h-80 overflow-y-auto custom-scrollbar">
                       {notifications.map(n => (
                         <div key={n.id} className={cn(
                           "px-4 py-3 border-b flex gap-3 transition-colors cursor-pointer",
                           isDark ? "border-slate-800/50 hover:bg-slate-800/50" : "border-slate-50 hover:bg-slate-50",
-                          !n.read && (isDark ? "bg-indigo-500/5" : "bg-indigo-50/50")
+                          !n.read && (isDark ? `bg-[rgba(${ac.rgb},0.05)]` : `bg-[rgba(${ac.rgb},0.05)]`)
                         )}>
                           <div className={cn(
                             "w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5",
                             n.type === "alert" ? "bg-rose-500/10 text-rose-400" :
-                            n.type === "success" ? "bg-emerald-500/10 text-emerald-400" :
-                            "bg-indigo-500/10 text-indigo-400"
-                          )}>
+                            n.type === "success" ? "bg-emerald-500/10 text-emerald-400" : ""
+                          )} style={n.type !== "alert" && n.type !== "success" ? { backgroundColor: `rgba(${ac.rgb},0.1)`, color: ac[400] } : undefined}>
                             {n.type === "alert" ? <AlertTriangle className="h-4 w-4" /> :
                              n.type === "success" ? <TrendingUp className="h-4 w-4" /> :
                              <Bell className="h-4 w-4" />}
@@ -307,7 +310,7 @@ export function Layout() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <p className={cn("text-sm font-medium truncate", isDark ? "text-slate-200" : "text-slate-800")}>{n.title}</p>
-                              {!n.read && <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>}
+                              {!n.read && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: ac[500] }}></span>}
                             </div>
                             <p className={cn("text-xs mt-0.5 line-clamp-2", isDark ? "text-slate-400" : "text-slate-500")}>{n.desc}</p>
                             <p className={cn("text-[10px] mt-1", isDark ? "text-slate-500" : "text-slate-400")}>{n.time}</p>
@@ -320,8 +323,9 @@ export function Layout() {
                       onClick={() => setNotifOpen(false)}
                       className={cn(
                         "flex items-center justify-center gap-1 px-4 py-2.5 text-xs font-medium transition-colors",
-                        isDark ? "text-indigo-400 hover:bg-slate-800/50" : "text-indigo-600 hover:bg-slate-50"
+                        isDark ? "hover:bg-slate-800/50" : "hover:bg-slate-50"
                       )}
+                      style={{ color: ac[isDark ? 400 : 600] }}
                     >
                       View all notifications <ChevronRight className="h-3 w-3" />
                     </Link>

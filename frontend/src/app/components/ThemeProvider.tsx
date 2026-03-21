@@ -73,6 +73,20 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--accent-500", c[500]);
     root.style.setProperty("--accent-600", c[600]);
     root.style.setProperty("--accent-rgb", c.rgb);
+    root.style.setProperty("--accent-rgb", c.rgb);
+
+    // Override Tailwind's default "slate" palette (dark blue) with a dynamically tinted neutral (zinc) palette
+    root.style.setProperty("--color-slate-50", `color-mix(in srgb, rgb(${c.rgb}) 2%, var(--color-zinc-50))`);
+    root.style.setProperty("--color-slate-100", `color-mix(in srgb, rgb(${c.rgb}) 3%, var(--color-zinc-100))`);
+    root.style.setProperty("--color-slate-200", `color-mix(in srgb, rgb(${c.rgb}) 4%, var(--color-zinc-200))`);
+    root.style.setProperty("--color-slate-300", `color-mix(in srgb, rgb(${c.rgb}) 4%, var(--color-zinc-300))`);
+    root.style.setProperty("--color-slate-400", `color-mix(in srgb, rgb(${c.rgb}) 4%, var(--color-zinc-400))`);
+    root.style.setProperty("--color-slate-500", `color-mix(in srgb, rgb(${c.rgb}) 5%, var(--color-zinc-500))`);
+    root.style.setProperty("--color-slate-600", `color-mix(in srgb, rgb(${c.rgb}) 5%, var(--color-zinc-600))`);
+    root.style.setProperty("--color-slate-700", `color-mix(in srgb, rgb(${c.rgb}) 6%, var(--color-zinc-700))`);
+    root.style.setProperty("--color-slate-800", `color-mix(in srgb, rgb(${c.rgb}) 6%, var(--color-zinc-800))`);
+    root.style.setProperty("--color-slate-900", `color-mix(in srgb, rgb(${c.rgb}) 5%, var(--color-zinc-900))`);
+    root.style.setProperty("--color-slate-950", `color-mix(in srgb, rgb(${c.rgb}) 4%, var(--color-zinc-950))`);
   }, [accent]);
 
   const toggleTheme = () => setTheme(prev => prev === "dark" ? "light" : "dark");

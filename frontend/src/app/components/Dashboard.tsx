@@ -125,12 +125,14 @@ function GlowCard({
   glowColor = "rgba(99,102,241,0.12)",
   glowSize = 250,
   motionProps,
+  style,
 }: {
   children: React.ReactNode;
   className?: string;
   glowColor?: string;
   glowSize?: number;
   motionProps?: any;
+  style?: React.CSSProperties;
 }) {
   const { ref, glowRef, isHovered } = useMouseGlow(glowColor, glowSize);
 
@@ -138,6 +140,7 @@ function GlowCard({
     <motion.div
       ref={ref}
       className={cn("relative overflow-hidden", className)}
+      style={style}
       {...motionProps}
     >
       <div
@@ -355,7 +358,7 @@ export function Dashboard() {
               </motion.div>
               <div>
                 <p className="text-lg font-semibold text-white">Drop your file to import</p>
-                <p className="text-sm text-indigo-300/80 mt-2">CSV, Excel (.xlsx/.xls), or PDF bank statements</p>
+                <p className="text-sm mt-2" style={{ color: `rgba(${ac.rgb},0.6)` }}>CSV, Excel (.xlsx/.xls), or PDF bank statements</p>
               </div>
               <div className="flex items-center gap-2 mt-1">
                 {["CSV", "XLSX", "PDF"].map(fmt => (
@@ -418,8 +421,8 @@ export function Dashboard() {
             >
               <div className={cn("flex items-center justify-between px-6 py-4 border-b", isDark ? "border-slate-800" : "border-slate-100")}>
                 <div className="flex items-center gap-3">
-                  <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center", isDark ? "bg-indigo-500/10" : "bg-indigo-50")}>
-                    <Upload className="h-4 w-4 text-indigo-400" />
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: `rgba(${ac.rgb},0.1)` }}>
+                    <Upload className="h-4 w-4" style={{ color: ac[400] }} />
                   </div>
                   <div>
                     <h2 className={cn("font-semibold", isDark ? "text-slate-200" : "text-slate-800")}>Import Transactions</h2>
@@ -438,9 +441,10 @@ export function Dashboard() {
                       className={cn(
                         "flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed rounded-xl cursor-pointer transition-all",
                         dropZoneHighlight
-                          ? "border-indigo-400 bg-indigo-500/10 scale-[1.02]"
-                          : isDark ? "border-slate-700 hover:border-indigo-500/40 hover:bg-indigo-500/5" : "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50"
+                          ? "scale-[1.02]"
+                          : isDark ? "border-slate-700" : "border-slate-200"
                       )}
+                      style={dropZoneHighlight ? { borderColor: ac[400], backgroundColor: `rgba(${ac.rgb},0.1)` } : undefined}
                       onDragOver={(e) => { e.preventDefault(); setDropZoneHighlight(true); }}
                       onDragLeave={() => setDropZoneHighlight(false)}
                       onDrop={handleModalDrop}
@@ -448,9 +452,10 @@ export function Dashboard() {
                       <motion.div
                         animate={dropZoneHighlight ? { y: [0, -6, 0] } : {}}
                         transition={{ duration: 1, repeat: Infinity }}
-                        className={cn("w-12 h-12 rounded-xl flex items-center justify-center", dropZoneHighlight ? "bg-indigo-500/20" : isDark ? "bg-slate-800" : "bg-slate-100")}
+                        className={cn("w-12 h-12 rounded-xl flex items-center justify-center", !dropZoneHighlight && (isDark ? "bg-slate-800" : "bg-slate-100"))}
+                        style={dropZoneHighlight ? { backgroundColor: `rgba(${ac.rgb},0.2)` } : undefined}
                       >
-                        <FileSpreadsheet className={cn("h-6 w-6", dropZoneHighlight ? "text-indigo-400" : isDark ? "text-slate-400" : "text-slate-500")} />
+                        <FileSpreadsheet className={cn("h-6 w-6", !dropZoneHighlight && (isDark ? "text-slate-400" : "text-slate-500"))} style={dropZoneHighlight ? { color: ac[400] } : undefined} />
                       </motion.div>
                       <div className="text-center">
                         <p className={cn("text-sm font-medium", isDark ? "text-slate-200" : "text-slate-800")}>
@@ -483,7 +488,7 @@ export function Dashboard() {
                 {importStep === "preview" && (
                   <div className="space-y-4">
                     <div className={cn("flex items-center gap-3 p-3 rounded-lg border", isDark ? "border-slate-800 bg-slate-800/30" : "border-slate-100 bg-slate-50")}>
-                      <FileSpreadsheet className="h-4 w-4 text-indigo-400" />
+                      <FileSpreadsheet className="h-4 w-4" style={{ color: ac[400] }} />
                       <div className="flex-1 min-w-0">
                         <p className={cn("text-xs font-medium truncate", isDark ? "text-slate-200" : "text-slate-800")}>{importFileName}</p>
                         <p className={cn("text-[10px]", textSecondary)}>{importedRows.length} transactions detected</p>
@@ -524,7 +529,7 @@ export function Dashboard() {
                       <button onClick={() => { setImportStep("select"); setImportedRows([]); }} className={cn("px-4 py-2 rounded-lg text-xs font-medium transition-colors", isDark ? "text-slate-400 hover:bg-slate-800" : "text-slate-500 hover:bg-slate-100")}>
                         Back
                       </button>
-                      <button onClick={handleImportConfirm} className="px-4 py-2 rounded-lg text-xs font-medium bg-indigo-500 text-white hover:bg-indigo-600 transition-colors">
+                      <button onClick={handleImportConfirm} className="px-4 py-2 rounded-lg text-xs font-medium text-white transition-colors" style={{ backgroundColor: ac[500] }}>
                         Import {importedRows.length} Transactions
                       </button>
                     </div>
@@ -533,7 +538,7 @@ export function Dashboard() {
 
                 {importStep === "importing" && (
                   <div className="flex flex-col items-center justify-center py-8 gap-4">
-                    <Loader2 className="h-8 w-8 text-indigo-400 animate-spin" />
+                    <Loader2 className="h-8 w-8 animate-spin" style={{ color: ac[400] }} />
                     <div className="text-center">
                       <p className={cn("text-sm font-medium", isDark ? "text-slate-200" : "text-slate-800")}>Importing transactions...</p>
                       <p className={cn("text-xs mt-1", textSecondary)}>Running Isolation Forest anomaly detection</p>
@@ -550,7 +555,7 @@ export function Dashboard() {
                       <p className={cn("text-sm font-medium", isDark ? "text-slate-200" : "text-slate-800")}>Import Complete!</p>
                       <p className={cn("text-xs mt-1", textSecondary)}>{importedRows.length} transactions added · 1 anomaly detected</p>
                     </div>
-                    <button onClick={handleImportClose} className="px-4 py-2 rounded-lg text-xs font-medium bg-indigo-500 text-white hover:bg-indigo-600 transition-colors">
+                    <button onClick={handleImportClose} className="px-4 py-2 rounded-lg text-xs font-medium text-white transition-colors" style={{ backgroundColor: ac[500] }}>
                       Done
                     </button>
                   </div>
@@ -630,14 +635,14 @@ export function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className={cn("text-base font-semibold flex items-center gap-2", isDark ? "text-slate-200" : "text-slate-800")}>
-                <BrainCircuit className="h-4 w-4 text-indigo-400" />
+                <BrainCircuit className="h-4 w-4" style={{ color: ac[400] }} />
                 Spending Forecast (LSTM)
               </h3>
               <p className={cn("text-xs mt-1", textMuted)}>Actual vs Predicted spending for the next 2 months</p>
             </div>
             <div className="flex items-center gap-3 text-xs">
-              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-indigo-500"></div><span className={textSecondary}>Actual</span></div>
-              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full border border-indigo-500 border-dashed"></div><span className={textSecondary}>Predicted</span></div>
+              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: ac[500] }}></div><span className={textSecondary}>Actual</span></div>
+              <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full border border-dashed" style={{ borderColor: ac[500] }}></div><span className={textSecondary}>Predicted</span></div>
             </div>
           </div>
           <div className="h-72 w-full mt-auto">
@@ -785,7 +790,7 @@ export function Dashboard() {
                 Isolation Forest
               </span>
             </h3>
-            <button className="text-xs text-indigo-400 hover:text-indigo-300">View All</button>
+            <button className="text-xs hover:opacity-80 transition-opacity" style={{ color: ac[400] }}>View All</button>
           </div>
           
           <div className="space-y-3">
@@ -821,10 +826,10 @@ export function Dashboard() {
               </motion.div>
             ))}
             
-            <div className={cn("p-3 rounded-xl border flex items-start gap-3", isDark ? "bg-indigo-500/5 border-indigo-500/20" : "bg-indigo-50 border-indigo-200")}>
-              <Sparkles className="h-5 w-5 text-indigo-400 shrink-0 mt-0.5" />
+            <div className={cn("p-3 rounded-xl border flex items-start gap-3")} style={isDark ? { backgroundColor: `rgba(${ac.rgb},0.05)`, borderColor: `rgba(${ac.rgb},0.2)` } : { backgroundColor: `rgba(${ac.rgb},0.05)`, borderColor: `rgba(${ac.rgb},0.2)` }}>
+              <Sparkles className="h-5 w-5 shrink-0 mt-0.5" style={{ color: ac[400] }} />
               <div>
-                <p className="text-sm font-medium text-indigo-400">AI Suggestion</p>
+                <p className="text-sm font-medium" style={{ color: ac[400] }}>AI Suggestion</p>
                 <p className={cn("text-xs mt-1 leading-relaxed", textSecondary)}>
                   You are spending 38% of your income on food, which is higher than the recommended 15%. Consider reducing dining out to stay on track for your vacation goal.
                 </p>
@@ -845,7 +850,7 @@ export function Dashboard() {
               <Wallet className="h-4 w-4 text-emerald-400" />
               Recent Transactions
             </h3>
-            <button className="text-xs text-indigo-400 hover:text-indigo-300">View All</button>
+            <button className="text-xs hover:opacity-80 transition-opacity" style={{ color: ac[400] }}>View All</button>
           </div>
           
           <div className="space-y-0.5 flex-1 overflow-y-auto pr-2 custom-scrollbar">
@@ -892,6 +897,7 @@ export function Dashboard() {
 }
 
 function MetricCard({ title, value, change, isPositive, icon: Icon, color, isDark }: any) {
+  const { accentColors: ac } = useTheme();
   const colorMap: Record<string, { bg: string; text: string; border: string; glow: string }> = {
     indigo: { bg: "bg-indigo-500/10", text: "text-indigo-500", border: "border-indigo-500/20", glow: "rgba(99,102,241,0.15)" },
     emerald: { bg: "bg-emerald-500/10", text: "text-emerald-500", border: "border-emerald-500/20", glow: "rgba(16,185,129,0.15)" },

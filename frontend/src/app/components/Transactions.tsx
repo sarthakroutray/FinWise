@@ -38,8 +38,9 @@ export function Transactions() {
   const [importStep, setImportStep] = useState<"select" | "preview" | "importing" | "done">("select");
   const [importedRows, setImportedRows] = useState<ImportedTransaction[]>([]);
   const [importFileName, setImportFileName] = useState("");
-  const { theme } = useTheme();
+  const { theme, accentColors } = useTheme();
   const isDark = theme === "dark";
+  const ac = accentColors;
   const { data: finData, uploadFile, isLoading: finLoading } = useFinData();
 
   // Derive transactions from backend data or use mocks
@@ -111,8 +112,12 @@ export function Transactions() {
             onClick={() => setShowImportModal(true)}
             className={cn(
               "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
-              isDark ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20" : "bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-100"
             )}
+            style={{
+              backgroundColor: `rgba(${ac.rgb},0.1)`,
+              borderColor: `rgba(${ac.rgb},0.2)`,
+              color: ac[isDark ? 400 : 600],
+            }}
           >
             <Upload className="h-3.5 w-3.5" /> Import Data
           </button>
@@ -167,8 +172,8 @@ export function Transactions() {
               {/* Header */}
               <div className={cn("flex items-center justify-between px-6 py-4 border-b", isDark ? "border-slate-800" : "border-slate-100")}>
                 <div className="flex items-center gap-3">
-                  <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center", isDark ? "bg-indigo-500/10" : "bg-indigo-50")}>
-                    <Upload className="h-4 w-4 text-indigo-400" />
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: `rgba(${ac.rgb},0.1)`, color: ac[400] }}>
+                    <Upload className="h-4 w-4" style={{ color: ac[400] }} />
                   </div>
                   <div>
                     <h2 className={cn("font-semibold", textPrimary)}>Import Transactions</h2>
@@ -186,7 +191,7 @@ export function Transactions() {
                   <div className="space-y-4">
                     <label className={cn(
                       "flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed rounded-xl cursor-pointer transition-colors",
-                      isDark ? "border-slate-700 hover:border-indigo-500/40 hover:bg-indigo-500/5" : "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50"
+                      isDark ? "border-slate-700" : "border-slate-200"
                     )}>
                       <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", isDark ? "bg-slate-800" : "bg-slate-100")}>
                         <FileSpreadsheet className={cn("h-6 w-6", isDark ? "text-slate-400" : "text-slate-500")} />
@@ -225,7 +230,7 @@ export function Transactions() {
                 {importStep === "preview" && (
                   <div className="space-y-4">
                     <div className={cn("flex items-center gap-3 p-3 rounded-lg border", isDark ? "border-slate-800 bg-slate-800/30" : "border-slate-100 bg-slate-50")}>
-                      <FileSpreadsheet className="h-4 w-4 text-indigo-400" />
+                      <FileSpreadsheet className="h-4 w-4" style={{ color: ac[400] }} />
                       <div className="flex-1 min-w-0">
                         <p className={cn("text-xs font-medium truncate", textPrimary)}>{importFileName}</p>
                         <p className={cn("text-[10px]", textSecondary)}>{importedRows.length} transactions detected</p>
@@ -266,7 +271,7 @@ export function Transactions() {
                       <button onClick={() => { setImportStep("select"); setImportedRows([]); }} className={cn("px-4 py-2 rounded-lg text-xs font-medium transition-colors", isDark ? "text-slate-400 hover:bg-slate-800" : "text-slate-500 hover:bg-slate-100")}>
                         Back
                       </button>
-                      <button onClick={handleImportConfirm} className="px-4 py-2 rounded-lg text-xs font-medium bg-indigo-500 text-white hover:bg-indigo-600 transition-colors">
+                      <button onClick={handleImportConfirm} className="px-4 py-2 rounded-lg text-xs font-medium text-white transition-colors" style={{ backgroundColor: ac[500] }}>
                         Import {importedRows.length} Transactions
                       </button>
                     </div>
@@ -275,7 +280,7 @@ export function Transactions() {
 
                 {importStep === "importing" && (
                   <div className="flex flex-col items-center justify-center py-8 gap-4">
-                    <Loader2 className="h-8 w-8 text-indigo-400 animate-spin" />
+                    <Loader2 className="h-8 w-8 animate-spin" style={{ color: ac[400] }} />
                     <div className="text-center">
                       <p className={cn("text-sm font-medium", textPrimary)}>Importing transactions...</p>
                       <p className={cn("text-xs mt-1", textSecondary)}>Running Isolation Forest anomaly detection</p>
@@ -292,7 +297,7 @@ export function Transactions() {
                       <p className={cn("text-sm font-medium", textPrimary)}>Import Complete!</p>
                       <p className={cn("text-xs mt-1", textSecondary)}>{importedRows.length} transactions added · 1 anomaly detected</p>
                     </div>
-                    <button onClick={handleImportClose} className="px-4 py-2 rounded-lg text-xs font-medium bg-indigo-500 text-white hover:bg-indigo-600 transition-colors">
+                    <button onClick={handleImportClose} className="px-4 py-2 rounded-lg text-xs font-medium text-white transition-colors" style={{ backgroundColor: ac[500] }}>
                       Done
                     </button>
                   </div>
@@ -315,7 +320,7 @@ export function Transactions() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className={cn(
-                  "w-full border rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 transition-colors",
+                  "w-full border rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none transition-colors",
                   isDark ? "bg-slate-950 border-slate-700 text-slate-200 placeholder:text-slate-500" : "bg-white border-slate-200 text-slate-800 placeholder:text-slate-400"
                 )}
               />
@@ -424,9 +429,9 @@ export function Transactions() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <button className={cn(
-                      "text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-all flex items-center gap-1 ml-auto",
+                      "text-xs font-medium hover:opacity-80 transition-all flex items-center gap-1 ml-auto",
                       expandedId === tx.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                    )}>
+                    )} style={{ color: ac[400] }}>
                       <ChevronDown className={cn("h-3 w-3 transition-transform", expandedId === tx.id && "rotate-180")} />
                       {expandedId === tx.id ? "Less" : "Details"}
                     </button>
@@ -499,8 +504,8 @@ export function Transactions() {
             {[1, 2, 3].map(p => (
               <button key={p} className={cn(
                 "w-8 h-8 rounded-md text-xs font-medium transition-colors",
-                p === 1 ? "bg-indigo-500/20 text-indigo-400" : (isDark ? "text-slate-400 hover:bg-slate-800" : "text-slate-500 hover:bg-slate-100")
-              )}>{p}</button>
+                p === 1 ? "" : (isDark ? "text-slate-400 hover:bg-slate-800" : "text-slate-500 hover:bg-slate-100")
+              )} style={p === 1 ? { backgroundColor: `rgba(${ac.rgb},0.2)`, color: ac[400] } : undefined}>{p}</button>
             ))}
           </div>
         </div>

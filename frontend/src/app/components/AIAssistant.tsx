@@ -32,8 +32,9 @@ export function AIAssistant() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { theme } = useTheme();
+  const { theme, accentColors } = useTheme();
   const isDark = theme === "dark";
+  const ac = accentColors;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -90,8 +91,8 @@ export function AIAssistant() {
         isDark ? "bg-slate-900/80 border-slate-800" : "bg-white/80 border-slate-200"
       )}>
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
-            <Sparkles className="h-5 w-5 text-indigo-400" />
+          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `rgba(${ac.rgb},0.2)`, border: `1px solid rgba(${ac.rgb},0.3)` }}>
+            <Sparkles className="h-5 w-5" style={{ color: ac[400] }} />
           </div>
           <div>
             <h2 className={cn("text-lg font-semibold flex items-center gap-2", isDark ? "text-slate-100" : "text-slate-900")}>
@@ -124,9 +125,9 @@ export function AIAssistant() {
               <div className={cn(
                 "w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1",
                 msg.role === "user" 
-                  ? "bg-gradient-to-tr from-indigo-500 to-purple-500 text-white" 
-                  : (isDark ? "bg-slate-800 border border-slate-700 text-indigo-400" : "bg-slate-100 border border-slate-200 text-indigo-500")
-              )}>
+                  ? "text-white" 
+                  : (isDark ? "border border-slate-700" : "border border-slate-200")
+              )} style={msg.role === "user" ? { background: `linear-gradient(to top right, ${ac[500]}, #8b5cf6)` } : isDark ? { backgroundColor: 'rgb(30,41,59)', color: ac[400] } : { backgroundColor: 'rgb(241,245,249)', color: ac[500] }}>
                 {msg.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
               </div>
               
@@ -134,10 +135,10 @@ export function AIAssistant() {
                 <div className={cn(
                   "p-4 rounded-2xl text-sm leading-relaxed shadow-sm",
                   msg.role === "user" 
-                    ? "bg-indigo-600 text-white rounded-tr-sm" 
+                    ? "text-white rounded-tr-sm" 
                     : (isDark ? "bg-slate-800 border border-slate-700 text-slate-200 rounded-tl-sm" : "bg-slate-100 border border-slate-200 text-slate-800 rounded-tl-sm")
-                )}>
-                  {msg.content.split('**').map((text, i) => i % 2 === 1 ? <strong key={i} className={msg.role === "user" ? "text-white font-semibold" : "text-indigo-400 font-semibold"}>{text}</strong> : text)}
+                )} style={msg.role === "user" ? { backgroundColor: ac[600] } : undefined}>
+                  {msg.content.split('**').map((text, i) => i % 2 === 1 ? <strong key={i} className={msg.role === "user" ? "text-white font-semibold" : "font-semibold"} style={msg.role !== "user" ? { color: ac[400] } : undefined}>{text}</strong> : text)}
                 </div>
 
                 {msg.chart && (
@@ -166,7 +167,7 @@ export function AIAssistant() {
                               { name: "Gas", value: 180, over: false },
                               { name: "Netflix", value: 45, over: false },
                             ].map((entry, i) => (
-                              <Cell key={`cell-${i}`} fill={entry.over ? "#f43f5e" : "#6366f1"} />
+                              <Cell key={`cell-${i}`} fill={entry.over ? "#f43f5e" : ac[500]} />
                             ))}
                           </Bar>
                         </RechartsBarChart>
@@ -174,7 +175,7 @@ export function AIAssistant() {
                     </div>
                     <div className="flex items-center gap-4 mt-2 text-[10px]">
                       <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-rose-500"></div><span className={isDark ? "text-slate-400" : "text-slate-500"}>Above Average</span></div>
-                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-indigo-500"></div><span className={isDark ? "text-slate-400" : "text-slate-500"}>Normal</span></div>
+                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: ac[500] }}></div><span className={isDark ? "text-slate-400" : "text-slate-500"}>Normal</span></div>
                     </div>
                   </div>
                 )}
@@ -198,7 +199,8 @@ export function AIAssistant() {
                       <button
                         key={i}
                         onClick={() => handleSend(suggestion)}
-                        className="px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-400 hover:bg-indigo-500/20 hover:text-indigo-300 transition-colors"
+                        className="px-3 py-1.5 rounded-full text-xs transition-colors"
+                        style={{ backgroundColor: `rgba(${ac.rgb},0.1)`, border: `1px solid rgba(${ac.rgb},0.2)`, color: ac[400] }}
                       >
                         {suggestion}
                       </button>
@@ -213,11 +215,11 @@ export function AIAssistant() {
         {isLoading && (
           <div className="flex w-full justify-start">
             <div className="flex gap-4 max-w-[85%]">
-              <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-indigo-400", isDark ? "bg-slate-800 border border-slate-700" : "bg-slate-100 border border-slate-200")}>
+              <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0", isDark ? "bg-slate-800 border border-slate-700" : "bg-slate-100 border border-slate-200")} style={{ color: ac[400] }}>
                 <Bot className="h-4 w-4" />
               </div>
               <div className={cn("p-4 rounded-2xl rounded-tl-sm flex items-center gap-2", isDark ? "bg-slate-800 border border-slate-700 text-slate-200" : "bg-slate-100 border border-slate-200 text-slate-600")}>
-                <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
+                <Loader2 className="h-4 w-4 animate-spin" style={{ color: ac[400] }} />
                 <span className={cn("text-sm", isDark ? "text-slate-400" : "text-slate-500")}>Analyzing financial data...</span>
               </div>
             </div>
@@ -238,7 +240,7 @@ export function AIAssistant() {
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about your spending, anomalies, or future predictions..."
             className={cn(
-              "w-full border rounded-xl pl-4 pr-12 py-3.5 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all",
+              "w-full border rounded-xl pl-4 pr-12 py-3.5 text-sm focus:outline-none transition-all",
               isDark ? "bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-500 shadow-inner" : "bg-slate-50 border-slate-200 text-slate-800 placeholder:text-slate-400"
             )}
             disabled={isLoading}
@@ -248,8 +250,9 @@ export function AIAssistant() {
             disabled={!input.trim() || isLoading}
             className={cn(
               "absolute right-2 p-2 rounded-lg transition-colors",
-              "bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 disabled:text-slate-400 text-white"
+              "text-white"
             )}
+            style={{ backgroundColor: !input.trim() || isLoading ? undefined : ac[600] }}
           >
             <Send className="h-4 w-4" />
           </button>
