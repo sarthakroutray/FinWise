@@ -19,6 +19,8 @@ class AnomalyDetector:
 
     def fit(self, df: pd.DataFrame) -> None:
         """Train IsolationForest on engineered features and persist to disk."""
+        if df.empty:
+            return
         features = df[["amount_zscore", "rolling_7d_spend", "spend_velocity"]].fillna(0).values
         self.model = IsolationForest(
             contamination=self.contamination, random_state=42, n_estimators=200
@@ -35,8 +37,19 @@ class AnomalyDetector:
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:
         """Score transactions and flag anomalies."""
         df = df.copy()
+        if df.empty:
+            df["anomaly_score"] = []
+            df["is_anomaly"] = []
+            return df
+            
         if self.model is None:
             self.fit(df)
+            
+        if self.model is None:
+            df["anomaly_score"] = 0.0
+            df["is_anomaly"] = False
+            return df
+            
         features = df[["amount_zscore", "rolling_7d_spend", "spend_velocity"]].fillna(0).values
         scores = self.model.decision_function(features)
         df["anomaly_score"] = scores
