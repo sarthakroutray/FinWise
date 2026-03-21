@@ -24,8 +24,9 @@ const mockPredictionData = [
 ];
 
 export function Insights() {
-  const { theme } = useTheme();
+  const { theme, accentColors } = useTheme();
   const isDark = theme === "dark";
+  const ac = accentColors;
   const { data: finData } = useFinData();
   const cardBg = isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200";
   const textPrimary = isDark ? "text-slate-200" : "text-slate-800";
@@ -64,7 +65,7 @@ export function Insights() {
     <div className="max-w-6xl mx-auto space-y-8">
       <div>
         <h1 className={cn("text-2xl font-bold flex items-center gap-2", isDark ? "text-slate-100" : "text-slate-900")}>
-          <BrainCircuit className="h-6 w-6 text-indigo-400" />
+          <BrainCircuit className="h-6 w-6" style={{ color: ac[400] }} />
           Financial Intelligence
         </h1>
         <p className={cn("text-sm mt-1", textSecondary)}>Deep analysis powered by Machine Learning and AI.</p>
@@ -73,13 +74,13 @@ export function Insights() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* ML Prediction Card */}
         <div className={cn("border rounded-2xl p-6 shadow-xl col-span-1 md:col-span-2 relative overflow-hidden", cardBg)}>
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+          <div className="absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" style={{ backgroundColor: `rgba(${ac.rgb},0.05)` }}></div>
           
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 relative z-10">
             <div>
               <h2 className={cn("text-lg font-bold flex items-center gap-2", textPrimary)}>
                 Savings Trajectory Predictor
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/20">LSTM Network</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold" style={{ backgroundColor: `rgba(${ac.rgb},0.2)`, color: ac[400], border: `1px solid rgba(${ac.rgb},0.2)` }}>LSTM Network</span>
               </h2>
               <p className={cn("text-sm mt-1", textSecondary)}>Forecasting your savings rate for the next 3 months based on historical behavior.</p>
             </div>
@@ -169,7 +170,7 @@ export function Insights() {
         </div>
 
         {/* AI Actionable Recs */}
-        <div className={cn("border rounded-2xl p-6 shadow-xl", isDark ? "bg-gradient-to-br from-indigo-900/40 to-slate-900 border-indigo-500/20" : "bg-gradient-to-br from-indigo-50 to-white border-indigo-200")}>
+        <div className={cn("border rounded-2xl p-6 shadow-xl")} style={isDark ? { background: `linear-gradient(to bottom right, rgba(${ac.rgb},0.15), #0f172a)`, borderColor: `rgba(${ac.rgb},0.2)` } : { background: `linear-gradient(to bottom right, rgba(${ac.rgb},0.08), white)`, borderColor: `rgba(${ac.rgb},0.3)` }}>
           <h2 className={cn("text-lg font-bold flex items-center gap-2 mb-6", textPrimary)}>
             <Zap className="h-5 w-5 text-amber-400" />
             Actionable Recommendations
@@ -191,7 +192,10 @@ export function Insights() {
                   </div>
                   <p className={cn("text-xs mt-1 pl-4", textSecondary)}>{rec.desc}</p>
                 </div>
-                <button className="self-start sm:self-center shrink-0 px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-xs font-medium text-white transition-colors">
+                <button className="self-start sm:self-center shrink-0 px-3 py-1.5 rounded-md text-xs font-medium text-white transition-colors" style={{ backgroundColor: ac[600] }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = ac[500])}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = ac[600])}
+                >
                   {rec.action}
                 </button>
               </li>

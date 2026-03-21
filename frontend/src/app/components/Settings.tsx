@@ -28,9 +28,9 @@ export function Settings() {
     <label className="relative inline-flex items-center cursor-pointer">
       <input type="checkbox" className="sr-only peer" defaultChecked={defaultChecked} />
       <div className={cn(
-        "w-11 h-6 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500",
+        "w-11 h-6 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all",
         isDark ? "bg-slate-700" : "bg-slate-300"
-      )}></div>
+      )} style={{ ['--tw-peer-checked-bg' as any]: ac[500] }}><style>{`.peer:checked ~ div { background-color: ${ac[500]} !important; }`}</style></div>
     </label>
   );
 
@@ -89,15 +89,15 @@ export function Settings() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={cn("text-xs font-medium block mb-1.5", textSecondary)}>Full Name</label>
-                  <input defaultValue="John Smith" className={cn("w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500/50", inputBg)} />
+                  <input defaultValue="John Smith" className={cn("w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-current/50", inputBg)} />
                 </div>
                 <div>
                   <label className={cn("text-xs font-medium block mb-1.5", textSecondary)}>Email</label>
-                  <input defaultValue="john.smith@email.com" className={cn("w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500/50", inputBg)} />
+                  <input defaultValue="john.smith@email.com" className={cn("w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-current/50", inputBg)} />
                 </div>
                 <div>
                   <label className={cn("text-xs font-medium block mb-1.5", textSecondary)}>Currency</label>
-                  <select className={cn("w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500/50", inputBg)}>
+                  <select className={cn("w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-current/50", inputBg)}>
                     <option>USD ($)</option>
                     <option>EUR</option>
                     <option>INR</option>
@@ -106,7 +106,7 @@ export function Settings() {
                 </div>
                 <div>
                   <label className={cn("text-xs font-medium block mb-1.5", textSecondary)}>Monthly Income</label>
-                  <input defaultValue="$5,500" className={cn("w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500/50", inputBg)} />
+                  <input defaultValue="$5,500" className={cn("w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-current/50", inputBg)} />
                 </div>
               </div>
 
@@ -215,8 +215,8 @@ export function Settings() {
                     {["Low", "Medium", "High"].map(level => (
                       <button key={level} className={cn(
                         "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                        level === "Medium" ? "bg-indigo-500/20 text-indigo-400 shadow" : (isDark ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-800")
-                      )}>{level}</button>
+                        level === "Medium" ? "shadow" : (isDark ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-800")
+                      )} style={level === "Medium" ? { backgroundColor: `rgba(${ac.rgb},0.2)`, color: ac[400] } : undefined}>{level}</button>
                     ))}
                   </div>
                 </div>
@@ -315,7 +315,7 @@ export function Settings() {
                 ].map((acc, i) => (
                   <div key={i} className={cn("flex items-center justify-between p-4 rounded-xl border", isDark ? "bg-slate-800/40 border-slate-700/50" : "bg-slate-50 border-slate-200")}>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `rgba(${ac.rgb},0.1)`, color: ac[400], border: `1px solid rgba(${ac.rgb},0.2)` }}>
                         <CreditCard className="h-5 w-5" />
                       </div>
                       <div>
@@ -332,10 +332,14 @@ export function Settings() {
                 ))}
               </div>
 
-              <button className={cn(
-                "w-full py-3 rounded-xl border-2 border-dashed text-sm font-medium transition-colors",
-                isDark ? "border-slate-700 text-slate-400 hover:border-indigo-500/50 hover:text-indigo-400" : "border-slate-300 text-slate-500 hover:border-indigo-400 hover:text-indigo-600"
-              )}>
+              <button
+                className={cn(
+                  "w-full py-3 rounded-xl border-2 border-dashed text-sm font-medium transition-colors",
+                  isDark ? "border-slate-700 text-slate-400" : "border-slate-300 text-slate-500"
+                )}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = `rgba(${ac.rgb},0.5)`; e.currentTarget.style.color = ac[isDark ? 400 : 600]; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.color = ''; }}
+              >
                 + Link New Account
               </button>
             </div>
@@ -352,7 +356,7 @@ export function Settings() {
               <div className="space-y-5">
                 <div>
                   <label className={cn("text-xs font-medium block mb-1.5", textSecondary)}>LLM Provider</label>
-                  <select className={cn("w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500/50", inputBg)}>
+                  <select className={cn("w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-current/50", inputBg)}>
                     <option>GPT-4o (Recommended)</option>
                     <option>Claude 3.5 Sonnet</option>
                     <option>Gemini Pro</option>
@@ -360,7 +364,7 @@ export function Settings() {
                 </div>
                 <div>
                   <label className={cn("text-xs font-medium block mb-1.5", textSecondary)}>API Key</label>
-                  <input type="password" defaultValue="sk-••••••••••••••••" className={cn("w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500/50 font-mono", inputBg)} />
+                  <input type="password" defaultValue="sk-••••••••••••••••" className={cn("w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-current/50 font-mono", inputBg)} />
                 </div>
 
                 <div className={cn("flex items-center justify-between py-4 border-y", sectionBorder)}>
@@ -372,8 +376,8 @@ export function Settings() {
                     {["1M", "3M", "6M", "All"].map(range => (
                       <button key={range} className={cn(
                         "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                        range === "3M" ? "bg-indigo-500/20 text-indigo-400 shadow" : (isDark ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-800")
-                      )}>{range}</button>
+                        range === "3M" ? "shadow" : (isDark ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-800")
+                      )} style={range === "3M" ? { backgroundColor: `rgba(${ac.rgb},0.2)`, color: ac[400] } : undefined}>{range}</button>
                     ))}
                   </div>
                 </div>
