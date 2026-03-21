@@ -3,11 +3,9 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.rag.pipeline import RAGPipeline
+from app.services import rag_pipeline
 
 router = APIRouter()
-
-_rag_pipeline = RAGPipeline()
 
 
 class QueryRequest(BaseModel):
@@ -29,7 +27,7 @@ async def query(request: QueryRequest) -> QueryResponse:
     
     if request.use_rlm:
         # Use the powerful RLM for deep analysis and charts
-        result = await _rag_pipeline.query_rlm(
+        result = await rag_pipeline.query_rlm(
             request.question,
             provider=request.rlm_provider,
             model=request.rlm_model,
@@ -48,7 +46,7 @@ async def query(request: QueryRequest) -> QueryResponse:
             )
 
     # Standard RAG Retrieve-and-Rank
-    results = _rag_pipeline.query(request.question, top_k=3)
+    results = rag_pipeline.query(request.question, top_k=3)
     
     if not results or results[0].startswith("No documents"):
         return QueryResponse(

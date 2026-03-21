@@ -7,19 +7,12 @@ from pydantic import BaseModel
 from app.ingestion.parser import parse_statement
 from app.ingestion.pdf_extractor import BankStatementPDFExtractor
 from app.features.engineer import engineer_features
-from app.models.anomaly import AnomalyDetector
-from app.models.forecaster import LSTMForecaster
 from app.scoring.health_score import compute_health_score
 from app.recommendations.engine import generate_recommendations
-from app.rag.pipeline import RAGPipeline
 from app.core.config import config
+from app.services import anomaly_detector, forecaster, rag_pipeline
 
 router = APIRouter()
-
-# Module-level instances (lazy-loaded on first call)
-_anomaly_detector = AnomalyDetector()
-_forecaster = LSTMForecaster()
-_rag_pipeline = RAGPipeline()
 
 
 class ExtractionMeta(BaseModel):
@@ -86,13 +79,13 @@ async def analyze(file: UploadFile = File(...)) -> AnalyzeResponse:
     featured_df = engineer_features(raw_df)
 
     # Anomaly detection (auto-trains if model missing)
-    _anomaly_detector.load()
-    anomaly_df = _anomaly_detector.predict(featured_df)
+    anomaly_detector.load()
+    anomaly_df = anomaly_detector.predict(featured_df)
 
     # Forecasting (auto-trains if model missing)
     daily_spend = featured_df.set_index("date")["amount"].resample("D").sum().fillna(0)
-    _forecaster.load()
-    forecast = _forecaster.predict(daily_spend, horizon=30)
+    forecaster.load()
+    forecast = forecaster.predict(daily_spend, horizon=30)
 
     # Health score
     health = compute_health_score(featured_df, anomaly_df, forecast)
@@ -110,8 +103,8 @@ async def analyze(file: UploadFile = File(...)) -> AnalyzeResponse:
                 total = group["amount"].sum()
                 count = len(group)
                 chunks.append(f"Category {cat}: {count} transactions totaling {total:.2f}")
-        _rag_pipeline.build_index(chunks)
-        _rag_pipeline.set_full_context(featured_df)
+        rag_pipeline.build_index(chunks)
+        rag_pipeline.set_full_context(featured_df)
 
     # Anomaly rows for response
     anomaly_rows = anomaly_df[anomaly_df["is_anomaly"] == True][
