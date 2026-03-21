@@ -4,6 +4,7 @@ import { cn } from "../utils";
 import { useTheme } from "./ThemeProvider";
 import { streamChat } from "../services/api";
 import { useChatStore, type ChartConfig, type DebugTrace } from "../store/useChatStore";
+import type { ChatMessage } from "../store/useChatStore";
 import { DynamicChart } from "./chat/DynamicChart";
 import { DebateView } from "./chat/DebateView";
 import { MarkdownRenderer } from "./MarkdownRenderer";
@@ -246,7 +247,7 @@ export function AIAssistant() {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar">
-          {messages.map((msg) => (
+          {messages.map((msg: ChatMessage) => (
             <div key={msg.id}>
               {/* Chart messages */}
               {msg.chartConfig && <DynamicChart config={msg.chartConfig} />}
@@ -301,7 +302,7 @@ export function AIAssistant() {
                           <span className={cn("text-xs font-medium flex items-center gap-1", isDark ? "text-slate-500" : "text-slate-400")}>
                             <BrainCircuit className="h-3 w-3" /> Sources:
                           </span>
-                          {msg.sources.map((src, i) => (
+                          {msg.sources.map((src: string, i: number) => (
                             <span
                               key={i}
                               className={cn(
@@ -318,7 +319,7 @@ export function AIAssistant() {
                       {/* Suggestion chips */}
                       {msg.suggestions && msg.suggestions.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-3">
-                          {msg.suggestions.map((s, i) => (
+                          {msg.suggestions.map((s: string, i: number) => (
                             <button
                               key={i}
                               onClick={() => handleSend(s)}

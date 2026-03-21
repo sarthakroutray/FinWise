@@ -17,7 +17,6 @@ export interface TransactionRow {
   description: string;
   amount: number;
   balance: number | null;
-  currency?: string | null;
   category: string;
 }
 
@@ -48,6 +47,11 @@ export interface AnalyzeResponse {
 export interface QueryResponse {
   answer: string;
   sources: string[];
+  chart?: {
+    type: "bar" | "line" | "pie" | "area";
+    title: string;
+    data: any[];
+  };
 }
 
 export interface HealthCheckResponse {
@@ -90,11 +94,16 @@ export async function analyzeFile(
   return res.json();
 }
 
-export async function queryRAG(question: string): Promise<QueryResponse> {
+export async function queryRAG(
+  question: string,
+  use_rlm: boolean = false,
+  rlm_provider?: string,
+  rlm_model?: string
+): Promise<QueryResponse> {
   const res = await fetch(`${BASE}/query`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, use_rlm, rlm_provider, rlm_model }),
   });
   if (!res.ok) {
     const text = await res.text();
