@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Union
 
 from app.agents.base import AgentContext
 from app.llm.gemini_client import GeminiClient, ChatEvent
+from app.llm.groq_client import GroqClient
 from app.llm.system_prompts import ORCHESTRATOR_PROMPT, STREAMING_ORCHESTRATOR_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 class Orchestrator:
     """Pro-model evaluator for multi-agent debates."""
 
-    def __init__(self, client: GeminiClient) -> None:
+    def __init__(self, client: Union[GeminiClient, GroqClient]) -> None:
         self._client = client
 
     async def evaluate(

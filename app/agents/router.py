@@ -9,9 +9,10 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Union
 
 from app.llm.gemini_client import GeminiClient
+from app.llm.groq_client import GroqClient
 from app.llm.system_prompts import ROUTER_CLASSIFICATION_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ def heuristic_is_dilemma(message: str) -> bool:
 
 
 async def classify_message(
-    client: GeminiClient,
+    client: Union[GeminiClient, GroqClient],
     user_message: str,
 ) -> RoutingDecision:
     """Use LLM to classify a message as normal or debate-worthy.

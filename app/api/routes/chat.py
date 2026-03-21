@@ -24,7 +24,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.core.config import config
+from typing import Any, Union
 from app.llm.gemini_client import GeminiClient, ChatEvent
+from app.llm.groq_client import GroqClient
 from app.llm.system_prompts import (
     STANDALONE_CHAT_PROMPT,
     TOOL_USAGE_INSTRUCTIONS,
@@ -50,17 +52,17 @@ router = APIRouter()
 
 # ── Singletons (initialized in lifespan via services.py) ───────────────────
 
-_pro_client: GeminiClient | None = None
-_flash_client_1: GeminiClient | None = None
-_flash_client_2: GeminiClient | None = None
+_pro_client: Union[GeminiClient, GroqClient] | None = None
+_flash_client_1: Union[GeminiClient, GroqClient] | None = None
+_flash_client_2: Union[GeminiClient, GroqClient] | None = None
 _session_mgr: SessionManager | None = None
 _rag_index: LLMRagIndex | None = None
 
 
 def init_chat_services(
-    pro: GeminiClient,
-    flash1: GeminiClient,
-    flash2: GeminiClient,
+    pro: Union[GeminiClient, GroqClient],
+    flash1: Union[GeminiClient, GroqClient],
+    flash2: Union[GeminiClient, GroqClient],
     session_mgr: SessionManager,
     rag_index: LLMRagIndex,
 ) -> None:

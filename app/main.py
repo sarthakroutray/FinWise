@@ -20,12 +20,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     services.anomaly_detector.load()
     services.forecaster.load()
 
-    # Initialize Gemini clients and LLM services
-    services.init_gemini_services()
+    # Initialize Groq clients and LLM services
+    services.init_llm_services()
     init_chat_services(
-        pro=services.gemini_pro_client,
-        flash1=services.gemini_flash_1_client,
-        flash2=services.gemini_flash_2_client,
+        pro=services.chat_pro_client,
+        flash1=services.chat_flash_1_client,
+        flash2=services.chat_flash_2_client,
         session_mgr=services.session_manager,
         rag_index=services.llm_rag_index,
     )

@@ -11,20 +11,20 @@ anomaly_detector = AnomalyDetector()
 forecaster = LSTMForecaster()
 rag_pipeline = RAGPipeline()
 
-# ── LLM singletons (initialized lazily in init_gemini_services) ────────────
-gemini_pro_client = None
-gemini_flash_1_client = None
-gemini_flash_2_client = None
+# ── LLM singletons (initialized lazily in init_llm_services) ────────────
+chat_pro_client = None
+chat_flash_1_client = None
+chat_flash_2_client = None
 session_manager = None
 llm_rag_index = None
 
 
-def init_gemini_services() -> None:
-    """Create Gemini clients and LLM support services.
+def init_llm_services() -> None:
+    """Create Groq clients for chat and Gemini for embeddings.
 
     Called once during app startup (lifespan).
     """
-    global gemini_pro_client, gemini_flash_1_client, gemini_flash_2_client
+    global chat_pro_client, chat_flash_1_client, chat_flash_2_client
     global session_manager, llm_rag_index
 
     from app.core.config import config
@@ -46,31 +46,29 @@ def init_gemini_services() -> None:
         import logging
         logging.warning("No Gemini API keys found in config! Operations will fail.")
 
-    gemini_pro_client = GeminiClient(
+    # RAG index gets the pure Gemini client
+    gemini_embedding_client = GeminiClient(
         api_keys=active_keys,
         model=config.GEMINI_PRO_MODEL,
     )
     
-    if getattr(config, "GROQ_API_KEY", None):
-        gemini_flash_1_client = GroqClient(
-            api_keys=config.GROQ_API_KEY,
-            model="llama3-8b-8192",
-        )
-        gemini_flash_2_client = GroqClient(
-            api_keys=config.GROQ_API_KEY,
-            model="llama3-8b-8192",
-        )
-        import logging
-        logging.info("Initialized high-speed Groq Llama3 backend for debate agents.")
-    else:
-        gemini_flash_1_client = GeminiClient(
-            api_keys=active_keys,
-            model=config.GEMINI_FLASH_MODEL,
-        )
-        gemini_flash_2_client = GeminiClient(
-            api_keys=active_keys,
-            model=config.GEMINI_FLASH_MODEL,
-        )
+    # Use Groq for chatbot unconditionally
+    groq_api_key = config.GROQ_API_KEY
+    if not groq_api_key:
+        groq_api_key = active_keys[0] if active_keys else ""
+        
+    chat_pro_client = GroqClient(
+        api_keys=groq_api_key,
+        model=config.GROQ_DEFAULT_MODEL,
+    )
+    chat_flash_1_client = GroqClient(
+        api_keys=groq_api_key,
+        model=config.GROQ_DEFAULT_MODEL,
+    )
+    chat_flash_2_client = GroqClient(
+        api_keys=groq_api_key,
+        model=config.GROQ_DEFAULT_MODEL,
+    )
 
     session_manager = SessionManager(ttl_seconds=3600 * 4)
-    llm_rag_index = LLMRagIndex(gemini_pro_client)
+    llm_rag_index = LLMRagIndex(gemini_embedding_client)
