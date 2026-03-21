@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Search, Filter, ShieldAlert, ArrowDownLeft, ArrowUpRight, Activity, Download, ChevronDown, MapPin, Clock, Tag, Upload, FileSpreadsheet, FileText, X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
-import { cn } from "../utils";
+import { cn, formatMoney } from "../utils";
 import { useTheme } from "./ThemeProvider";
 import { motion, AnimatePresence } from "motion/react";
 import { useFinData } from "../store/useFinData";
@@ -11,6 +11,7 @@ interface ImportedTransaction {
   date: string;
   merchant: string;
   amount: number;
+  currency?: string | null;
   category: string;
   status: "normal" | "anomaly";
   score: number;
@@ -41,6 +42,7 @@ export function Transactions() {
       date: t.date,
       merchant: t.description,
       amount: t.amount,
+      currency: t.currency,
       category: t.category,
       status: anomalyDescs.has(t.description) ? "anomaly" as const : "normal" as const,
       score: anomalyDescs.has(t.description) ? 0.95 : 0.05,
@@ -242,7 +244,7 @@ export function Transactions() {
                               <td className={cn("px-3 py-2 font-medium", textPrimary)}>{row.merchant}</td>
                               <td className={cn("px-3 py-2", textSecondary)}>{row.date.split(" ")[0]}</td>
                               <td className={cn("px-3 py-2 text-right font-mono", row.amount > 0 ? "text-emerald-400" : textPrimary)}>
-                                {row.amount > 0 ? "+" : ""}{row.amount.toFixed(2)}
+                                {row.amount > 0 ? "+" : ""}{formatMoney(Math.abs(row.amount), row.currency || undefined)}
                               </td>
                               <td className="px-3 py-2 text-center">
                                 {row.status === "anomaly" ? (
@@ -413,7 +415,7 @@ export function Transactions() {
                       "font-bold",
                       tx.amount > 0 ? "text-emerald-400" : textPrimary
                     )}>
-                      {tx.amount > 0 ? "+" : ""}{tx.amount.toFixed(2)}
+                      {tx.amount > 0 ? "+" : "-"}{formatMoney(Math.abs(tx.amount), tx.currency || undefined)}
                     </p>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">

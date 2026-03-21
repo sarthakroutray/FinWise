@@ -15,13 +15,14 @@ from extract import BankStatementExtractor
 def _rows_to_df(rows: list[dict[str, Any]]) -> pd.DataFrame:
     """Convert extractor rows to canonical pipeline DataFrame columns."""
     if not rows:
-        return pd.DataFrame(columns=["date", "description", "amount", "balance", "extraction_confidence"])
+        return pd.DataFrame(columns=["date", "description", "amount", "balance", "currency", "extraction_confidence"])
 
     df = pd.DataFrame(rows)
     if "date" in df.columns:
         df["date"] = pd.to_datetime(df["date"], errors="coerce")
     if "amount" in df.columns:
         df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
+        df["amount"] = df["amount"].round(2)
 
     if "description" not in df.columns:
         df["description"] = "Unknown"
@@ -34,12 +35,19 @@ def _rows_to_df(rows: list[dict[str, Any]]) -> pd.DataFrame:
         df["balance"] = None
     else:
         df["balance"] = pd.to_numeric(df["balance"], errors="coerce")
+    if "balance" in df.columns:
+        df["balance"] = df["balance"].round(2)
+
+    if "currency" not in df.columns:
+        df["currency"] = None
+    else:
+        df["currency"] = df["currency"].fillna("").astype(str).str.upper().replace({"": None})
 
     if "extraction_confidence" not in df.columns:
         df["extraction_confidence"] = "high"
 
     df = df.dropna(subset=["date", "amount"]).drop_duplicates()
-    return df[["date", "description", "amount", "balance", "extraction_confidence"]].sort_values("date").reset_index(drop=True)
+    return df[["date", "description", "amount", "balance", "currency", "extraction_confidence"]].sort_values("date").reset_index(drop=True)
 
 
 def parse_statement_with_meta(file: UploadFile) -> tuple[pd.DataFrame, dict[str, Any]]:

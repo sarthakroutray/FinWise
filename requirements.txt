@@ -7,10 +7,10 @@ pydantic==2.10.4
 pydantic-settings==2.7.1
 python-multipart==0.0.20
 sqlalchemy==2.0.36
-psycopg2-binary==2.9.10
+pg8000==1.31.2
 firebase-admin==6.6.0
-httpx==0.28.1
 pdfplumber==0.11.4
+opendataloader-pdf
 pymupdf==1.25.3
 pytesseract==0.3.13
 Pillow==11.1.0
@@ -21,3 +21,9 @@ langdetect==1.0.9
 python-dateutil==2.9.0.post0
 google-genai>=1.0.0
 sympy>=1.13
+spacy==3.8.11
+opencv-python==4.10.0.84
+joblib==1.4.2
+
+# Optional alternative Postgres driver for Neon (not required with pg8000)
+# psycopg2-binary==2.9.10

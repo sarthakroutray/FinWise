@@ -36,7 +36,7 @@ import {
   RadialBarChart,
   RadialBar
 } from "recharts";
-import { cn } from "../utils";
+import { cn, formatMoney } from "../utils";
 import { useTheme } from "./ThemeProvider";
 import { motion } from "motion/react";
 import { AnimatePresence } from "motion/react";
@@ -162,17 +162,22 @@ export function Dashboard() {
     }));
   }, [finData]);
 
-  const totalBalance = useMemo(() => {
-    if (!finData?.transactions || finData.transactions.length === 0) return "$0.00";
-    const lastBal = finData.transactions.find(t => t.balance != null)?.balance;
-    return lastBal != null ? `$${lastBal.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : "$0.00";
+  const currencyCode = useMemo(() => {
+    const txCurrency = finData?.transactions?.find(t => t.currency)?.currency;
+    return txCurrency || "USD";
   }, [finData]);
 
+  const totalBalance = useMemo(() => {
+    if (!finData?.transactions || finData.transactions.length === 0) return formatMoney(0, currencyCode);
+    const lastBal = finData.transactions.find(t => t.balance != null)?.balance;
+    return lastBal != null ? formatMoney(lastBal, currencyCode) : formatMoney(0, currencyCode);
+  }, [finData, currencyCode]);
+
   const monthlySpend = useMemo(() => {
-    if (!finData?.transactions || finData.transactions.length === 0) return "$0.00";
+    if (!finData?.transactions || finData.transactions.length === 0) return formatMoney(0, currencyCode);
     const total = finData.transactions.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
-    return `$${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-  }, [finData]);
+    return formatMoney(total, currencyCode);
+  }, [finData, currencyCode]);
 
   const recentTransactions = useMemo(() => {
     if (!finData?.transactions || finData.transactions.length === 0) return [];
@@ -618,11 +623,12 @@ export function Dashboard() {
                 </defs>
                 <CartesianGrid key="grid" strokeDasharray="3 3" vertical={false} stroke={isDark ? "#334155" : "#e2e8f0"} opacity={0.5} />
                 <XAxis key="xaxis" dataKey="name" axisLine={false} tickLine={false} tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 12 }} dy={10} />
-                <YAxis key="yaxis" axisLine={false} tickLine={false} tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 12 }} tickFormatter={(value) => `$${value/1000}k`} />
+                <YAxis key="yaxis" axisLine={false} tickLine={false} tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 12 }} tickFormatter={(value) => `${(value/1000).toFixed(1)}k ${currencyCode}`} />
                 <Tooltip 
                   key="tooltip"
                   contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#334155' : '#e2e8f0', borderRadius: '0.5rem', color: isDark ? '#f8fafc' : '#0f172a' }}
                   itemStyle={{ color: isDark ? '#e2e8f0' : '#334155' }}
+                  formatter={(value: number) => formatMoney(Number(value), currencyCode)}
                 />
                 <Area key="area-actual" type="monotone" dataKey="actual" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorActual)" />
                 <Area key="area-predicted" type="monotone" dataKey="predicted" stroke="#8b5cf6" strokeWidth={2} strokeDasharray="5 5" fillOpacity={1} fill="url(#colorPredicted)" />
@@ -664,13 +670,13 @@ export function Dashboard() {
                   key="tooltip"
                   contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#334155' : '#e2e8f0', borderRadius: '0.5rem' }}
                   itemStyle={{ color: isDark ? '#e2e8f0' : '#334155' }}
-                  formatter={(value) => `$${value}`}
+                  formatter={(value) => formatMoney(Number(value), currencyCode)}
                 />
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
               <span className={cn("text-xs", textSecondary)}>Total</span>
-              <span className={cn("font-bold text-lg", textPrimary)}>${categoryData.reduce((sum, c) => sum + c.value, 0).toLocaleString()}</span>
+              <span className={cn("font-bold text-lg", textPrimary)}>{formatMoney(categoryData.reduce((sum, c) => sum + c.value, 0), currencyCode)}</span>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
@@ -680,7 +686,7 @@ export function Dashboard() {
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: c.color }}></div>
                   <span className={cn("truncate max-w-[60px]", isDark ? "text-slate-300" : "text-slate-600")}>{c.name}</span>
                 </div>
-                <span className={cn("font-medium", textSecondary)}>${c.value}</span>
+                <span className={cn("font-medium", textSecondary)}>{formatMoney(c.value, currencyCode)}</span>
               </div>
             ))}
           </div>
@@ -711,7 +717,7 @@ export function Dashboard() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={cn("text-xs font-mono", over ? "text-rose-400" : textSecondary)}>
-                      ${b.spent} / ${b.budget}
+                      {formatMoney(b.spent, currencyCode)} / {formatMoney(b.budget, currencyCode)}
                     </span>
                     {over && <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">Over</span>}
                   </div>
@@ -778,7 +784,7 @@ export function Dashboard() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className={cn("text-sm font-bold", isDark ? "text-slate-200" : "text-slate-800")}>${a.amount.toFixed(2)}</p>
+                  <p className={cn("text-sm font-bold", isDark ? "text-slate-200" : "text-slate-800")}>{formatMoney(a.amount, currencyCode)}</p>
                   <button className={cn("text-[10px] mt-1 border px-2 py-0.5 rounded transition-colors", isDark ? "text-slate-400 hover:text-white border-slate-700" : "text-slate-500 hover:text-slate-800 border-slate-300")}>Review</button>
                 </div>
               </motion.div>
@@ -812,13 +818,7 @@ export function Dashboard() {
           </div>
           
           <div className="space-y-0.5 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-            {[
-              { id: 1, name: "Whole Foods Market", category: "Food", amount: -84.20, date: "Today" },
-              { id: 2, name: "Salary Deposit", category: "Income", amount: 4250.00, date: "Yesterday", positive: true },
-              { id: 3, name: "Uber Ride", category: "Transport", amount: -24.50, date: "Yesterday" },
-              { id: 4, name: "Electric Bill", category: "Utilities", amount: -112.00, date: "3 days ago" },
-              { id: 5, name: "Amazon", category: "Shopping", amount: -45.99, date: "4 days ago" },
-            ].map(t => (
+            {recentTransactions.map(t => (
               <motion.div
                 key={t.id}
                 whileHover={{ x: 3, transition: { duration: 0.15 } }}
@@ -841,7 +841,7 @@ export function Dashboard() {
                     "text-sm font-semibold",
                     t.positive ? "text-emerald-400" : (isDark ? "text-slate-300" : "text-slate-700")
                   )}>
-                    {t.positive ? "+" : "-"}${Math.abs(t.amount).toFixed(2)}
+                    {t.positive ? "+" : "-"}{formatMoney(Math.abs(t.amount), currencyCode)}
                   </p>
                   <p className={cn("text-[10px]", textMuted)}>{t.date}</p>
                 </div>

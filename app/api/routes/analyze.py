@@ -1,8 +1,10 @@
 from typing import List, Dict, Any
 
 import io
+import math
 from datetime import date, timedelta
 
+import numpy as np
 import pandas as pd
 from fastapi import APIRouter, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
@@ -36,6 +38,7 @@ class TransactionRow(BaseModel):
     description: str
     amount: float
     balance: float | None
+    currency: str | None = None
     category: str
     extraction_confidence: str = "high"
 
@@ -57,8 +60,43 @@ def _build_forecast_points(forecast_values: list[float], last_date: date) -> Lis
     points = []
     for i, val in enumerate(forecast_values, start=1):
         day = last_date + timedelta(days=i)
-        points.append(ForecastPoint(date=day.isoformat(), predicted_amount=round(float(val), 2)))
+        safe_val = float(val)
+        if not math.isfinite(safe_val):
+            safe_val = 0.0
+        points.append(ForecastPoint(date=day.isoformat(), predicted_amount=round(safe_val, 2)))
     return points
+
+
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    """Return a finite float for API payloads."""
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return float(default)
+    return num if math.isfinite(num) else float(default)
+
+
+def _safe_optional_float(value: Any) -> float | None:
+    """Return a finite float or None for nullable payload fields."""
+    if value is None or pd.isna(value):
+        return None
+    num = _safe_float(value, default=0.0)
+    return num if math.isfinite(num) else None
+
+
+def _make_json_safe(value: Any) -> Any:
+    """Recursively convert non-finite numerics to JSON-safe values."""
+    if isinstance(value, dict):
+        return {str(k): _make_json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_make_json_safe(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_make_json_safe(v) for v in value)
+    if isinstance(value, np.floating):
+        return _safe_float(value)
+    if isinstance(value, float):
+        return _safe_float(value)
+    return value
 
 
 # ─── Routes ──────────────────────────────────────────────────────────────────
@@ -119,15 +157,22 @@ async def analyze(
     # --- Build response ---
     anomaly_rows = anomaly_df[anomaly_df["is_anomaly"] == True][["date", "description", "amount"]].copy()
     anomaly_rows["date"] = anomaly_rows["date"].dt.strftime("%Y-%m-%d")
+    anomaly_rows["amount"] = anomaly_rows["amount"].apply(_safe_float)
     anomalies_list = anomaly_rows.to_dict(orient="records")
 
     category_summary: Dict[str, float] = {}
     if "category" in featured_df.columns:
         cat_spend = featured_df[featured_df["amount"] < 0].groupby("category")["amount"].sum().abs()
-        category_summary = cat_spend.to_dict()
+        category_summary = {str(k): _safe_float(v) for k, v in cat_spend.to_dict().items()}
 
     # Build typed transaction list
     tx_df = anomaly_df[["date", "description", "amount", "balance"]].copy()
+    if "currency" in anomaly_df.columns:
+        tx_df["currency"] = anomaly_df["currency"].values
+    elif "currency" in featured_df.columns:
+        tx_df["currency"] = featured_df["currency"].values
+    else:
+        tx_df["currency"] = None
     if "category" in featured_df.columns:
         tx_df["category"] = featured_df["category"].values
     else:
@@ -139,13 +184,27 @@ async def analyze(
         tx_df["extraction_confidence"] = "high"
     tx_df["date"] = tx_df["date"].dt.strftime("%Y-%m-%d")
     tx_df["description"] = tx_df["description"].fillna("").astype(str)
+    tx_df["currency"] = tx_df["currency"].fillna("").astype(str).str.upper().replace({"": None})
     tx_df["category"] = tx_df["category"].fillna("Other").astype(str)
+    tx_df["amount"] = tx_df["amount"].apply(_safe_float)
+    tx_df["balance"] = tx_df["balance"].apply(_safe_optional_float)
+
+    health = {
+        "score": _safe_float(health.get("score", 0.0)),
+        "grade": str(health.get("grade", "F")),
+        "savings_rate": _safe_float(health.get("savings_rate", 0.0)),
+        "anomaly_ratio": _safe_float(health.get("anomaly_ratio", 0.0)),
+        "forecast_trend": str(health.get("forecast_trend", "stable")),
+    }
+
+    safe_total_blocks = max(total_blocks, 1)
+    confidence = round(min(rows_extracted / safe_total_blocks, 1.0), 4)
     transactions = [
         TransactionRow(**row)
-        for row in tx_df[["date", "description", "amount", "balance", "category", "extraction_confidence"]].to_dict(orient="records")
+        for row in tx_df[["date", "description", "amount", "balance", "currency", "category", "extraction_confidence"]].to_dict(orient="records")
     ]
 
-    return AnalyzeResponse(
+    response = AnalyzeResponse(
         health_score=health,
         recommendations=recs,
         anomalies=anomalies_list,
@@ -156,9 +215,11 @@ async def analyze(
             method=method,
             pages=pages,
             rows_extracted=rows_extracted,
-            confidence=round(min(rows_extracted / total_blocks, 1.0), 4),
+            confidence=_safe_float(confidence),
         ),
     )
+    safe_payload = _make_json_safe(response.model_dump())
+    return AnalyzeResponse.model_validate(safe_payload)
 
 
 @router.post("/extract", summary="Extract transactions from a PDF or CSV as a downloadable CSV file")
