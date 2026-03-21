@@ -19,11 +19,11 @@ This repository now includes the requested end-to-end pieces:
 
 ## Repository Structure
 
-- `app/`: FastAPI backend
+- `backend/`: FastAPI backend workspace
+- `backend/app/`: FastAPI source code
+- `backend/models_store/`: persisted ML artifacts
 - `frontend/`: React + Vite + TypeScript frontend
-- `models_store/`: persisted ML artifacts
-- `notebooks/`: training notebooks
-- `requirements.txt`: backend dependencies
+- `backend/requirements.txt`: backend dependencies
 
 ## Backend Setup
 
@@ -31,10 +31,11 @@ This repository now includes the requested end-to-end pieces:
 2. Install dependencies:
 
 ```bash
+cd backend
 pip install -r requirements.txt
 ```
 
-3. Configure environment variables in `.env` at repository root:
+3. Configure environment variables in `backend/.env`:
 
 ```env
 APP_NAME=FinWise AI
@@ -75,6 +76,7 @@ OPENROUTER_FREE_MODELS=meta-llama/llama-3.3-8b-instruct:free,google/gemma-3-27b-
 4. Start API:
 
 ```bash
+cd backend
 uvicorn app.main:app --reload
 ```
 

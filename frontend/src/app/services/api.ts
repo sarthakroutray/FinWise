@@ -179,3 +179,104 @@ export async function deleteDocumentRecord(idToken: string, documentId: number):
     throw new Error(`Delete document failed (${res.status}): ${text}`);
   }
 }
+
+// ── Chat (SSE Streaming) ──────────────────────────────────────────────────
+
+export interface ChatRequestPayload {
+  message: string;
+  session_id: string;
+  financial_context?: Record<string, unknown>;
+}
+
+/**
+ * Opens an SSE connection to /chat. Returns a function to close the stream.
+ * Calls `onEvent(eventType, data)` for each SSE event.
+ */
+export function streamChat(
+  payload: ChatRequestPayload,
+  onEvent: (event: string, data: any) => void,
+  onError?: (err: Error) => void,
+): () => void {
+  const controller = new AbortController();
+
+  (async () => {
+    try {
+      const res = await fetch(`${BASE}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Chat failed (${res.status}): ${text}`);
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response body");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        let currentEvent = "message";
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            currentEvent = line.slice(7).trim();
+          } else if (line.startsWith("data: ")) {
+            const rawData = line.slice(6);
+            try {
+              const parsed = JSON.parse(rawData);
+              onEvent(currentEvent, parsed);
+            } catch {
+              onEvent(currentEvent, rawData);
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        onError?.(err);
+      }
+    }
+  })();
+
+  return () => controller.abort();
+}
+
+// ── Scratchpad ────────────────────────────────────────────────────────────
+
+export async function queryScratchpad(
+  sessionId: string,
+  sql: string,
+): Promise<any> {
+  const res = await fetch(`${BASE}/scratchpad/query`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: sessionId, sql }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Scratchpad query failed (${res.status}): ${text}`);
+  }
+  return res.json();
+}
+
+export async function resetScratchpad(sessionId: string): Promise<void> {
+  const res = await fetch(`${BASE}/scratchpad/reset/${sessionId}`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Scratchpad reset failed (${res.status}): ${text}`);
+  }
+}
+
