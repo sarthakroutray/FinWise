@@ -7,7 +7,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -41,15 +41,32 @@ NOISE_PATTERNS = [
     re.compile(r"^closing\s+balance", re.IGNORECASE),
     re.compile(r"^total\b", re.IGNORECASE),
     re.compile(r"^summary\b", re.IGNORECASE),
+    re.compile(r"\bactivity\s+for\b", re.IGNORECASE),
+    re.compile(r"\brelationship\s+checking\b", re.IGNORECASE),
+    re.compile(r"\baccount\s+summary\b", re.IGNORECASE),
+    re.compile(r"\baccount\s+service\s+charges\b", re.IGNORECASE),
+    re.compile(r"\bchecks?\s+paid\b", re.IGNORECASE),
+    re.compile(r"\bcheck\s+images\b", re.IGNORECASE),
+    re.compile(r"\bdeposits?\s+and\s+other\s+credits\b", re.IGNORECASE),
+    re.compile(r"\bwithdrawals?\s+and\s+other\s+debits\b", re.IGNORECASE),
+    re.compile(r"\bdaily\s+(?:ending\s+)?balance\b", re.IGNORECASE),
+    re.compile(r"\bstatement\s+of\s+account\b", re.IGNORECASE),
+    re.compile(r"\bservice\s+charges?\s+and\s+fees\b", re.IGNORECASE),
+    re.compile(r"\binterest-bearing\s+days\b", re.IGNORECASE),
+    re.compile(r"\baverage\s+balance\b", re.IGNORECASE),
 ]
 
-DATE_TOKEN_PATTERN = re.compile(
-    r"(\b\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\b|"
+DATE_TOKEN_REGEX = (
+    r"\b\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\b|"
     r"\b\d{4}[\/\-.]\d{1,2}[\/\-.]\d{1,2}\b|"
     r"\b\d{1,2}\s+[A-Za-z]{3,9}\s+\d{2,4}\b|"
     r"\b[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{2,4}\b|"
-    r"\b\d{1,2}[\/\-.]\d{1,2}\b)"
+    r"\b\d{1,2}\s+[A-Za-z]{3,9}\b|"
+    r"\b[A-Za-z]{3,9}\s+\d{1,2}\b|"
+    r"\b\d{1,2}[\/\-.]\d{1,2}\b"
 )
+DATE_TOKEN_PATTERN = re.compile(rf"({DATE_TOKEN_REGEX})")
+START_DATE_TOKEN_PATTERN = re.compile(rf"^\s*(?P<date>{DATE_TOKEN_REGEX})(?:\s+|$)", re.IGNORECASE)
 
 NUMBER_TOKEN_PATTERN = re.compile(
     r"\(?[-+]?(?:\d+(?:[.,]\d+)*|[.,]\d+)(?:\)?)(?:\s*(?:CR|DR))?",
@@ -62,6 +79,8 @@ PERIOD_PATTERN = re.compile(
     re.IGNORECASE,
 )
 BANK_PATTERN = re.compile(r"\b([A-Z][A-Za-z& ]+\s+bank)\b", re.IGNORECASE)
+BALANCE_LABEL_PATTERN = re.compile(r"(?i)\b(?:bal|balance|closing|available|ledger|running)\b")
+AMOUNT_LABEL_PATTERN = re.compile(r"(?i)\b(?:amt|amount|debit|credit|withdraw(?:al)?|deposit)\b")
 
 
 @dataclass
@@ -71,6 +90,23 @@ class ParseContext:
     account_number: str | None = None
     period_start: str | None = None
     period_end: str | None = None
+    dayfirst_preference: bool | None = None
+
+
+@dataclass(frozen=True)
+class NumericCandidate:
+    raw: str
+    start: int
+    end: int
+    signed_value: float | None
+    plain_value: float | None
+    transaction_type: str | None
+    currency: str | None
+    digits_only: str
+    has_decimal: bool
+    has_sign_marker: bool
+    has_balance_hint: bool
+    has_amount_hint: bool
 
 
 class BankStatementExtractor:
@@ -83,8 +119,14 @@ class BankStatementExtractor:
         self.max_abs_amount = 10_000_000.0
         self.max_abs_balance = 100_000_000.0
 
+    def _reset_state(self) -> None:
+        """Clear mutable extraction state for a fresh file run."""
+        self.warnings = []
+        self.pages_failed = []
+
     def extract_file(self, input_path: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Extract transactions and parse report from an input statement file."""
+        self._reset_state()
         ext = input_path.suffix.lower()
         context = ParseContext(source_file=input_path.name)
 
@@ -113,7 +155,7 @@ class BankStatementExtractor:
         rows = self._reconcile_amounts_with_balance(rows)
         normalized = [self._normalize_output_row(r, context) for r in rows]
         normalized = [r for r in normalized if r["date"] and r["amount"] is not None]
-        normalized = self._filter_suspicious_rows(normalized)
+        normalized = self._filter_suspicious_rows(normalized, context)
 
         report = {
             "total_pages": total_pages,
@@ -157,21 +199,21 @@ class BankStatementExtractor:
                     debit_hints = ("purchase", "withdraw", "check", "charge", "fee", "debit")
                     credit_hints = ("credit", "deposit", "salary", "interest", "refund")
                     if any(h in desc for h in debit_hints) and delta < 0:
-                        item["amount"] = float(delta)
+                        item["amount"] = round(float(delta), 2)
                         item["transaction_type"] = "debit"
                         item["extraction_confidence"] = "low"
                         self.warnings.append(
                             f"Corrected amount via balance delta on {item.get('date')} ({item.get('description', '')[:30]})"
                         )
                     elif any(h in desc for h in credit_hints) and delta > 0:
-                        item["amount"] = float(delta)
+                        item["amount"] = round(float(delta), 2)
                         item["transaction_type"] = "credit"
                         item["extraction_confidence"] = "low"
                         self.warnings.append(
                             f"Corrected amount via balance delta on {item.get('date')} ({item.get('description', '')[:30]})"
                         )
                     elif abs(delta) <= max(abs(amount_val) * 0.25, 1.0):
-                        item["amount"] = float(delta)
+                        item["amount"] = round(float(delta), 2)
                         item["transaction_type"] = "credit" if delta >= 0 else "debit"
                         item["extraction_confidence"] = "low"
                         self.warnings.append(
@@ -184,7 +226,11 @@ class BankStatementExtractor:
 
         return reconciled
 
-    def _filter_suspicious_rows(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _filter_suspicious_rows(
+        self,
+        rows: list[dict[str, Any]],
+        context: ParseContext | None = None,
+    ) -> list[dict[str, Any]]:
         """Drop rows that are almost certainly OCR artifacts or parser corruption."""
         filtered: list[dict[str, Any]] = []
         now_year = datetime.now().year
@@ -195,7 +241,15 @@ class BankStatementExtractor:
             "check images",
             "deposits and other credits",
             "withdrawals and other debits",
+            "relationship checking",
+            "account service charges",
+            "statement of account",
+            "service charges and fees",
+            "interest-bearing days",
+            "average balance",
         )
+        period_start = self._safe_date_from_iso(context.period_start) if context else None
+        period_end = self._safe_date_from_iso(context.period_end) if context else None
 
         for row in rows:
             try:
@@ -213,6 +267,7 @@ class BankStatementExtractor:
                 continue
 
             bal = row.get("balance_after")
+            balance_val: float | None = None
             if bal not in (None, ""):
                 try:
                     balance_val = float(bal)
@@ -229,6 +284,14 @@ class BankStatementExtractor:
             if year is not None and (year < 2000 or year > now_year + 1):
                 self.warnings.append(f"Dropped row with implausible year {year}: {row.get('description', '')[:60]}")
                 continue
+
+            row_date = self._safe_date_from_iso(date_val)
+            if row_date and period_start and period_end:
+                if row_date < period_start - timedelta(days=7) or row_date > period_end + timedelta(days=7):
+                    self.warnings.append(
+                        f"Dropped row outside detected statement period on {row.get('date')}: {row.get('description', '')[:60]}"
+                    )
+                    continue
 
             desc = str(row.get("description") or "").lower()
             if any(term in desc for term in noise_terms):
@@ -249,6 +312,25 @@ class BankStatementExtractor:
             if len(desc) > 80 and digits > alpha * 2:
                 self.warnings.append(f"Dropped OCR-noisy row on {row.get('date')}: {row.get('description', '')[:60]}")
                 continue
+            if alpha == 0 or (alpha < 3 and digits >= alpha + 2):
+                self.warnings.append(
+                    f"Dropped low-information description row on {row.get('date')}: {row.get('description', '')[:60]}"
+                )
+                continue
+            if any(term in desc for term in ("sample statement", "you have successfully opened", "beginning balance")):
+                self.warnings.append(f"Dropped statement-header row on {row.get('date')}: {row.get('description', '')[:60]}")
+                continue
+            if row.get("extraction_confidence") == "low":
+                if "interest credit" in desc and "service charge" in desc:
+                    self.warnings.append(f"Dropped OCR-mixed summary row on {row.get('date')}: {row.get('description', '')[:60]}")
+                    continue
+                if "terminal" in desc:
+                    has_ocr_noise = digits >= 4 or "q0" in desc or "00-00" in desc or " pm " in f" {desc} "
+                    if has_ocr_noise and (
+                        abs(amount) < 1.0 or (balance_val is not None and abs(balance_val) < max(abs(amount), 50.0))
+                    ):
+                        self.warnings.append(f"Dropped low-confidence terminal detail row on {row.get('date')}: {row.get('description', '')[:60]}")
+                        continue
 
             filtered.append(row)
 
@@ -268,6 +350,8 @@ class BankStatementExtractor:
                 try:
                     page_text = page.extract_text() or ""
                     full_text_chunks.append(page_text)
+                    if page_text.strip():
+                        context = self._extract_statement_metadata(page_text, context)
 
                     page_rows = self._parse_tables_from_page(page, context)
                     if not page_rows:
@@ -282,6 +366,8 @@ class BankStatementExtractor:
                         self.warnings.append(f"Page {idx}: no text layer, OCR fallback attempted")
                         ocr_text = self._ocr_pdf_page(page)
                         full_text_chunks.append(ocr_text)
+                        if ocr_text.strip():
+                            context = self._extract_statement_metadata(ocr_text, context)
                         line_rows, carry_description = self._parse_text_lines(
                             ocr_text.splitlines(),
                             context,
@@ -324,13 +410,19 @@ class BankStatementExtractor:
                 (r[header_map["date"]] if len(r) > header_map["date"] else "")
                 for r in cleaned[header_idx + 1 : header_idx + 31]
             ]
-            prefer_dayfirst = self._infer_dayfirst_preference(sample_dates)
+            prefer_dayfirst = context.dayfirst_preference
+            if prefer_dayfirst is None:
+                prefer_dayfirst = self._infer_dayfirst_preference(sample_dates)
+                if prefer_dayfirst is not None:
+                    context.dayfirst_preference = prefer_dayfirst
 
+            previous_date: str | None = None
             for row in cleaned[header_idx + 1 :]:
-                parsed = self._build_row_from_columns(row, header_map, context, prefer_dayfirst)
+                parsed = self._build_row_from_columns(row, header_map, context, prefer_dayfirst, previous_date)
                 if parsed is not None:
                     parsed["extraction_confidence"] = "high"
                     parsed_rows.append(parsed)
+                    previous_date = parsed["date"]
         return parsed_rows
 
     def _detect_header_map(self, rows: list[list[str]]) -> tuple[dict[str, int] | None, int]:
@@ -369,13 +461,19 @@ class BankStatementExtractor:
         header_map: dict[str, int],
         context: ParseContext,
         prefer_dayfirst: bool | None = None,
+        previous_date: str | None = None,
     ) -> dict[str, Any] | None:
         """Build a normalized transaction row from a mapped table row."""
         max_idx = max(header_map.values())
         if len(row) <= max_idx:
             row = row + [""] * (max_idx - len(row) + 1)
 
-        date_val = self._parse_date(row[header_map["date"]], prefer_dayfirst=prefer_dayfirst)
+        date_val = self._parse_date(
+            row[header_map["date"]],
+            prefer_dayfirst=prefer_dayfirst,
+            context=context,
+            previous_date=previous_date,
+        )
         if date_val is None:
             return None
 
@@ -432,6 +530,7 @@ class BankStatementExtractor:
 
     def _parse_text_payload(self, text: str, context: ParseContext) -> list[dict[str, Any]]:
         """Parse plain text payload by regex lines then heuristic fallback."""
+        context = self._extract_statement_metadata(text, context)
         line_rows, _ = self._parse_text_lines(text.splitlines(), context, carry_description=None)
         if line_rows:
             return line_rows
@@ -444,125 +543,462 @@ class BankStatementExtractor:
         carry_description: str | None,
     ) -> tuple[list[dict[str, Any]], str | None]:
         """Parse date-led statement lines into transaction rows."""
-        line_list = list(lines)
-        prefer_dayfirst = self._infer_dayfirst_preference(line_list)
-        rows: list[dict[str, Any]] = []
-        current_carry = carry_description
+        line_list = [" ".join((raw or "").strip().split()) for raw in lines if (raw or "").strip()]
+        prefer_dayfirst = context.dayfirst_preference
+        if prefer_dayfirst is None:
+            prefer_dayfirst = self._infer_dayfirst_preference(line_list)
+            if prefer_dayfirst is not None:
+                context.dayfirst_preference = prefer_dayfirst
 
-        for raw in line_list:
-            line = " ".join((raw or "").strip().split())
-            if not line:
-                continue
+        blocks: list[list[str]] = []
+        current_block: list[str] = []
+        leading_carry = self._clean_description(carry_description or "") or None
+
+        for line in line_list:
             if self._is_noise_line(line):
+                if current_block and self._looks_like_section_break(line):
+                    blocks.append(current_block)
+                    current_block = []
                 continue
 
-            date_match = DATE_TOKEN_PATTERN.search(line)
-            if not date_match:
-                if rows:
-                    rows[-1]["description"] = self._clean_description(f"{rows[-1]['description']} {line}")
-                    rows[-1]["extraction_confidence"] = "medium"
-                else:
-                    current_carry = f"{current_carry or ''} {line}".strip()
+            if START_DATE_TOKEN_PATTERN.match(line):
+                if current_block:
+                    blocks.append(current_block)
+                current_block = [line]
                 continue
 
-            date_token = date_match.group(1)
-            parsed_date = self._parse_date(date_token, prefer_dayfirst=prefer_dayfirst)
-            if parsed_date is None:
-                continue
+            if current_block:
+                if self._looks_like_section_break(line):
+                    blocks.append(current_block)
+                    current_block = []
+                    continue
+                current_block.append(line)
+            elif not self._looks_like_section_break(line):
+                leading_carry = self._clean_description(" ".join(part for part in [leading_carry or "", line] if part))
 
-            prefix = line[: date_match.start()].strip()
-            suffix = line[date_match.end() :].strip()
-            desc_part, amount, currency, tx_type, balance = self._parse_suffix_fields(suffix)
-            description = self._clean_description(" ".join([prefix, current_carry or "", desc_part]).strip())
-            current_carry = None
+        if current_block:
+            blocks.append(current_block)
 
-            if amount is None:
-                continue
+        rows: list[dict[str, Any]] = []
+        previous_date: str | None = None
+        previous_balance: float | None = None
+        carry_out: str | None = None
 
-            rows.append(
-                {
-                    "date": parsed_date,
-                    "description": description or "Unknown",
-                    "amount": amount,
-                    "currency": currency,
-                    "transaction_type": tx_type,
-                    "reference_number": self._extract_reference(description),
-                    "balance_after": balance,
-                    "bank_name": context.bank_name,
-                    "account_number": context.account_number,
-                    "statement_period_start": context.period_start,
-                    "statement_period_end": context.period_end,
-                    "source_file": context.source_file,
-                    "extraction_confidence": "medium",
-                }
+        for idx, block in enumerate(blocks):
+            parsed, trailing_carry = self._parse_transaction_block(
+                block,
+                context=context,
+                prefer_dayfirst=prefer_dayfirst,
+                previous_date=previous_date,
+                previous_balance=previous_balance,
+                leading_description=leading_carry if idx == 0 else None,
             )
+            leading_carry = None
 
-        return rows, current_carry
+            if parsed is None:
+                if trailing_carry and idx == len(blocks) - 1:
+                    carry_out = trailing_carry
+                continue
 
-    def _parse_suffix_fields(self, suffix: str) -> tuple[str, float | None, str | None, str | None, float | None]:
+            rows.append(parsed)
+            previous_date = parsed["date"]
+            balance_after = parsed.get("balance_after")
+            try:
+                if balance_after not in (None, ""):
+                    previous_balance = float(balance_after)
+            except Exception:
+                pass
+
+        if not rows and leading_carry and not carry_out:
+            carry_out = leading_carry
+
+        return rows, carry_out
+
+    def _parse_transaction_block(
+        self,
+        block_lines: list[str],
+        context: ParseContext,
+        prefer_dayfirst: bool | None,
+        previous_date: str | None,
+        previous_balance: float | None,
+        leading_description: str | None = None,
+    ) -> tuple[dict[str, Any] | None, str | None]:
+        """Parse one date-anchored text block into a transaction row."""
+        block_text = self._clean_description(" ".join(part for part in block_lines if part))
+        if not block_text:
+            return None, None
+
+        date_match = START_DATE_TOKEN_PATTERN.match(block_text)
+        if not date_match:
+            return None, None
+
+        date_token = date_match.group("date")
+        parsed_date = self._parse_date(
+            date_token,
+            prefer_dayfirst=prefer_dayfirst,
+            context=context,
+            previous_date=previous_date,
+        )
+        if parsed_date is None:
+            return None, None
+
+        suffix = self._normalize_split_decimals(block_text[date_match.end() :].strip())
+        desc_part, amount, currency, tx_type, balance = self._parse_suffix_fields(
+            suffix,
+            previous_balance=previous_balance,
+        )
+        description = self._clean_description(" ".join(part for part in [leading_description or "", desc_part] if part))
+
+        if amount is None:
+            carry_text = self._clean_description(" ".join(part for part in [date_token, suffix] if part))
+            return None, carry_text or None
+
+        description = description or "Unknown"
+        reference_text = description if description != "Unknown" else suffix
+
+        return {
+            "date": parsed_date,
+            "description": description,
+            "amount": amount,
+            "currency": currency,
+            "transaction_type": tx_type,
+            "reference_number": self._extract_reference(reference_text),
+            "balance_after": balance,
+            "bank_name": context.bank_name,
+            "account_number": context.account_number,
+            "statement_period_start": context.period_start,
+            "statement_period_end": context.period_end,
+            "source_file": context.source_file,
+            "extraction_confidence": "medium",
+        }, None
+
+    def _parse_suffix_fields(
+        self,
+        suffix: str,
+        previous_balance: float | None = None,
+    ) -> tuple[str, float | None, str | None, str | None, float | None]:
         """Split the post-date segment into description, amount and balance candidates."""
-        number_matches = list(NUMBER_TOKEN_PATTERN.finditer(suffix))
-        if not number_matches:
-            return suffix, None, None, None, None
+        candidates = self._build_numeric_candidates(suffix)
+        if not candidates:
+            return self._clean_description(suffix), None, None, None, None
 
-        first_num_start = number_matches[0].start()
-        description = suffix[:first_num_start].strip()
+        best = self._select_best_numeric_interpretation(candidates, suffix, previous_balance)
+        if best is None:
+            return self._clean_description(suffix), None, None, None, None
 
-        raw_tokens = [m.group(0) for m in number_matches]
-        parsed_amounts: list[tuple[float | None, str | None, str | None]] = [
-            self._parse_amount(tok, description) for tok in raw_tokens
-        ]
-        currencies = [p[2] for p in parsed_amounts if p[2]]
-
-        if not any(p[0] is not None for p in parsed_amounts):
-            return description, None, None, None, None
-
-        amount: float | None = None
-        tx_type: str | None = None
-        balance: float | None = None
-
-        if len(raw_tokens) >= 3:
-            debit_amt, _, _ = self._parse_amount(raw_tokens[-3], description)
-            credit_amt, _, _ = self._parse_amount(raw_tokens[-2], description)
-            balance, bal_currency = self._parse_plain_number(raw_tokens[-1])
-            if bal_currency:
-                currencies.append(bal_currency)
-
-            debit = abs(debit_amt) if debit_amt is not None else 0.0
-            credit = abs(credit_amt) if credit_amt is not None else 0.0
-            amount = credit - debit
-            tx_type = "credit" if amount >= 0 else "debit"
-        elif len(raw_tokens) == 2:
-            amount, tx_type, cur_a = self._parse_amount(raw_tokens[0], description)
-            balance, bal_currency = self._parse_plain_number(raw_tokens[1])
-            if cur_a:
-                currencies.append(cur_a)
-            if bal_currency:
-                currencies.append(bal_currency)
-            if amount is None:
-                return description, None, None, None, None
-        else:
-            amount, tx_type, cur_a = self._parse_amount(raw_tokens[0], description)
-            if cur_a:
-                currencies.append(cur_a)
-            if amount is None:
-                return description, None, None, None, None
-
-        if amount is not None and not self.credits_positive:
-            amount = -amount
-            tx_type = "debit" if tx_type == "credit" else "credit"
-
-        return description, amount, (currencies[0] if currencies else None), tx_type, balance
+        return (
+            self._clean_description(best["description"]) or "Unknown",
+            best["amount"],
+            best["currency"],
+            best["transaction_type"],
+            best["balance"],
+        )
 
     def _parse_unstructured_text(self, text: str, context: ParseContext) -> list[dict[str, Any]]:
         """Parse free-form text as last-resort heuristic extraction."""
-        rows: list[dict[str, Any]] = []
-        for chunk in re.split(r"\n{2,}", text):
-            line_rows, _ = self._parse_text_lines(chunk.splitlines(), context, carry_description=None)
+        line_rows, _ = self._parse_text_lines(text.splitlines(), context, carry_description=None)
+        if line_rows:
             for row in line_rows:
                 row["extraction_confidence"] = "low"
-                rows.append(row)
+            return line_rows
+
+        matches = list(DATE_TOKEN_PATTERN.finditer(text))
+        if not matches:
+            return []
+
+        prefer_dayfirst = context.dayfirst_preference
+        if prefer_dayfirst is None:
+            prefer_dayfirst = self._infer_dayfirst_preference(text.splitlines())
+            if prefer_dayfirst is not None:
+                context.dayfirst_preference = prefer_dayfirst
+
+        rows: list[dict[str, Any]] = []
+        previous_date: str | None = None
+        previous_balance: float | None = None
+        for idx, match in enumerate(matches):
+            end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+            chunk = self._clean_description(text[match.start() : end])
+            parsed, _ = self._parse_transaction_block(
+                [chunk],
+                context=context,
+                prefer_dayfirst=prefer_dayfirst,
+                previous_date=previous_date,
+                previous_balance=previous_balance,
+            )
+            if parsed is None:
+                continue
+            parsed["extraction_confidence"] = "low"
+            rows.append(parsed)
+            previous_date = parsed["date"]
+            balance_after = parsed.get("balance_after")
+            try:
+                if balance_after not in (None, ""):
+                    previous_balance = float(balance_after)
+            except Exception:
+                pass
         return rows
+
+    def _looks_like_section_break(self, line: str) -> bool:
+        """Return True when a line is a structural header/footer, not a row continuation."""
+        text = self._clean_description(line).lower()
+        if not text:
+            return True
+        if any(pat.search(text) for pat in NOISE_PATTERNS):
+            return True
+        if len(text) > 80 and sum(ch.isdigit() for ch in text) > sum(ch.isalpha() for ch in text):
+            return True
+        return False
+
+    def _normalize_split_decimals(self, text: str) -> str:
+        """Repair OCR cases where decimal points are lost and cents become a separate token."""
+        parts = text.split()
+        if len(parts) < 2:
+            return text
+
+        normalized: list[str] = []
+        idx = 0
+        while idx < len(parts):
+            current = parts[idx]
+            nxt = parts[idx + 1] if idx + 1 < len(parts) else None
+            prev = parts[idx - 1] if idx > 0 else None
+            next_after = parts[idx + 2] if idx + 2 < len(parts) else None
+
+            if (
+                nxt is not None
+                and re.fullmatch(r"\d{1,3}", current)
+                and re.fullmatch(r"\d{2}", nxt)
+            ):
+                previous_has_decimal = bool(prev and re.fullmatch(r"\d[\d,]*\.\d{2}", prev))
+                next_has_decimal = bool(next_after and re.fullmatch(r"\d[\d,]*\.\d{2}", next_after))
+                if previous_has_decimal or next_has_decimal or next_after is None:
+                    normalized.append(f"{current}.{nxt}")
+                    idx += 2
+                    continue
+
+            normalized.append(current)
+            idx += 1
+
+        return " ".join(normalized)
+
+    def _build_numeric_candidates(self, suffix: str) -> list[NumericCandidate]:
+        """Parse all numeric tokens found in a text suffix for later scoring."""
+        candidates: list[NumericCandidate] = []
+        for match in NUMBER_TOKEN_PATTERN.finditer(suffix):
+            raw = match.group(0).strip()
+            left_context = suffix[: match.start()].strip()
+            prefix_window = suffix[max(0, match.start() - 18) : match.start()]
+            signed_value, tx_type, currency = self._parse_amount(raw, left_context)
+            plain_value, plain_currency = self._parse_plain_number(raw)
+            digits_only = re.sub(r"\D", "", raw)
+            candidates.append(
+                NumericCandidate(
+                    raw=raw,
+                    start=match.start(),
+                    end=match.end(),
+                    signed_value=signed_value,
+                    plain_value=plain_value,
+                    transaction_type=tx_type,
+                    currency=currency or plain_currency,
+                    digits_only=digits_only,
+                    has_decimal=("." in raw or "," in raw),
+                    has_sign_marker=bool(re.search(r"[-+()]|\b(?:CR|DR)\b", raw, re.IGNORECASE)),
+                    has_balance_hint=bool(BALANCE_LABEL_PATTERN.search(prefix_window)),
+                    has_amount_hint=bool(AMOUNT_LABEL_PATTERN.search(prefix_window)),
+                )
+            )
+        return candidates
+
+    def _select_best_numeric_interpretation(
+        self,
+        candidates: list[NumericCandidate],
+        suffix: str,
+        previous_balance: float | None,
+    ) -> dict[str, Any] | None:
+        """Choose the most plausible amount/balance interpretation from numeric tokens."""
+        if not candidates:
+            return None
+
+        indexed = list(enumerate(candidates))
+        tail = indexed[-5:]
+        options: list[dict[str, Any]] = []
+
+        for idx, cand in tail:
+            if cand.signed_value is None:
+                continue
+            options.append(
+                self._build_numeric_option(
+                    suffix=suffix,
+                    candidates=candidates,
+                    used_indexes=[idx],
+                    amount=cand.signed_value,
+                    tx_type=cand.transaction_type or ("credit" if cand.signed_value >= 0 else "debit"),
+                    balance=None,
+                )
+            )
+
+        for pos, (amount_idx, amount_cand) in enumerate(tail):
+            if amount_cand.signed_value is None:
+                continue
+            for balance_idx, balance_cand in tail[pos + 1 :]:
+                if balance_cand.plain_value is None:
+                    continue
+                options.append(
+                    self._build_numeric_option(
+                        suffix=suffix,
+                        candidates=candidates,
+                        used_indexes=[amount_idx, balance_idx],
+                        amount=amount_cand.signed_value,
+                        tx_type=amount_cand.transaction_type or ("credit" if amount_cand.signed_value >= 0 else "debit"),
+                        balance=balance_cand.plain_value,
+                    )
+                )
+
+        for pos, (debit_idx, debit_cand) in enumerate(tail):
+            if debit_cand.plain_value is None:
+                continue
+            for credit_pos, (credit_idx, credit_cand) in enumerate(tail[pos + 1 :], start=pos + 1):
+                if credit_cand.plain_value is None:
+                    continue
+                for balance_idx, balance_cand in tail[credit_pos + 1 :]:
+                    if balance_cand.plain_value is None:
+                        continue
+                    debit = abs(debit_cand.plain_value)
+                    credit = abs(credit_cand.plain_value)
+                    amount = credit - debit
+                    options.append(
+                        self._build_numeric_option(
+                            suffix=suffix,
+                            candidates=candidates,
+                            used_indexes=[debit_idx, credit_idx, balance_idx],
+                            amount=amount,
+                            tx_type="credit" if amount >= 0 else "debit",
+                            balance=balance_cand.plain_value,
+                        )
+                    )
+
+        if not options:
+            return None
+
+        best_option: dict[str, Any] | None = None
+        best_score: float | None = None
+        for option in options:
+            score = self._score_numeric_interpretation(option, candidates, suffix, previous_balance)
+            option["score"] = score
+            if best_score is None or score < best_score:
+                best_score = score
+                best_option = option
+        return best_option
+
+    def _build_numeric_option(
+        self,
+        suffix: str,
+        candidates: list[NumericCandidate],
+        used_indexes: list[int],
+        amount: float,
+        tx_type: str,
+        balance: float | None,
+    ) -> dict[str, Any]:
+        """Materialize one amount/balance interpretation candidate."""
+        used = sorted(used_indexes)
+        first_start = min(candidates[idx].start for idx in used)
+        description = suffix[:first_start].strip()
+        currencies = [candidates[idx].currency for idx in used if candidates[idx].currency]
+        return {
+            "used_indexes": used,
+            "description": description,
+            "amount": amount,
+            "transaction_type": tx_type,
+            "balance": balance,
+            "currency": currencies[0] if currencies else None,
+        }
+
+    def _score_numeric_interpretation(
+        self,
+        option: dict[str, Any],
+        candidates: list[NumericCandidate],
+        suffix: str,
+        previous_balance: float | None,
+    ) -> float:
+        """Score one numeric interpretation; lower is better."""
+        used = option["used_indexes"]
+        amount = float(option["amount"])
+        balance = option["balance"]
+        description = self._clean_description(option["description"])
+
+        score = 0.0
+        last_idx = len(candidates) - 1
+        if used[-1] != last_idx:
+            score += 6.0
+        if balance is not None and len(used) >= 2 and used[-2] != used[-1] - 1:
+            score += 1.5
+        if len(used) == 3 and (used[0] != used[1] - 1 or used[1] != used[2] - 1):
+            score += 1.0
+        if balance is None and len(candidates) >= 2:
+            trailing_pair = candidates[-2:]
+            if all(cand.has_decimal for cand in trailing_pair):
+                score += 4.0
+
+        balance_candidate = candidates[used[-1]]
+        if balance is not None and balance_candidate.has_balance_hint:
+            score -= 1.5
+        if balance is not None and len(used) >= 2 and all(candidates[idx].has_decimal for idx in used[-2:]):
+            score -= 1.0
+
+        amount_indexes = used[:-1] if balance is not None else used
+        for idx in amount_indexes:
+            cand = candidates[idx]
+            if self._looks_like_reference_token(cand):
+                score += 3.5
+            if not cand.has_decimal and len(cand.digits_only) >= 5:
+                score += 2.5
+            if cand.has_amount_hint:
+                score -= 0.5
+
+        if previous_balance is not None:
+            if balance is None:
+                score += 1.5
+            else:
+                mismatch = abs((previous_balance + amount) - balance)
+                score += min(mismatch, 5000.0) / 25.0
+                if mismatch <= 0.02:
+                    score -= 1.0
+
+        if balance is not None and abs(balance) > self.max_abs_balance:
+            score += 100.0
+        if abs(amount) > self.max_abs_amount:
+            score += 100.0
+
+        alpha = sum(ch.isalpha() for ch in description)
+        digits = sum(ch.isdigit() for ch in description)
+        if alpha == 0:
+            score += 4.0
+        elif alpha < 3 and digits >= alpha:
+            score += 2.5
+        if not description:
+            score += 1.5
+
+        inferred_credit = self._is_credit_description(description)
+        if inferred_credit and amount < 0:
+            score += 1.0
+        if not inferred_credit and amount > 0 and not any(candidates[idx].has_sign_marker for idx in amount_indexes):
+            score += 0.75
+
+        trailing_text = suffix[candidates[used[-1]].end :].strip()
+        if trailing_text:
+            score += 1.0
+
+        return score
+
+    @staticmethod
+    def _looks_like_reference_token(candidate: NumericCandidate) -> bool:
+        """Heuristic for check/reference IDs embedded before the true amount zone."""
+        return (
+            not candidate.has_decimal
+            and not candidate.has_sign_marker
+            and len(candidate.digits_only) >= 4
+            and not candidate.has_balance_hint
+            and not candidate.has_amount_hint
+        )
 
     def _extract_from_html(self, html: str, context: ParseContext) -> list[dict[str, Any]]:
         """Extract rows from HTML tables and text blocks."""
@@ -586,11 +1022,13 @@ class BankStatementExtractor:
             header_map, header_idx = self._detect_header_map(matrix)
             if header_map is None:
                 continue
+            previous_date: str | None = None
             for row in matrix[header_idx + 1 :]:
-                parsed = self._build_row_from_columns(row, header_map, context)
+                parsed = self._build_row_from_columns(row, header_map, context, previous_date=previous_date)
                 if parsed:
                     parsed["extraction_confidence"] = "high"
                     rows.append(parsed)
+                    previous_date = parsed["date"]
 
         if rows:
             return rows
@@ -599,6 +1037,10 @@ class BankStatementExtractor:
 
     def _extract_from_csv(self, input_path: Path, context: ParseContext) -> list[dict[str, Any]]:
         """Extract rows from CSV with auto header normalization."""
+        context = self._extract_statement_metadata(
+            input_path.read_text(encoding="utf-8", errors="ignore"),
+            context,
+        )
         df = pd.read_csv(input_path, dtype=str, encoding="utf-8", keep_default_na=False)
         return self._extract_rows_from_dataframe(df, context)
 
@@ -612,6 +1054,7 @@ class BankStatementExtractor:
         all_rows: list[dict[str, Any]] = []
         for sheet in excel.sheet_names:
             df = pd.read_excel(excel, sheet_name=sheet, dtype=str)
+            context = self._extract_statement_metadata(df.fillna("").to_string(index=False), context)
             sheet_rows = self._extract_rows_from_dataframe(df.fillna(""), context)
             all_rows.extend(sheet_rows)
         return all_rows
@@ -646,8 +1089,18 @@ class BankStatementExtractor:
 
         rows: list[dict[str, Any]] = []
         prev_balance: float | None = None
+        prev_date: str | None = None
+        if context.dayfirst_preference is None:
+            sample_tokens = [str(v) for v in df[col_map["date"]].head(25).tolist()]
+            inferred = self._infer_dayfirst_preference(sample_tokens)
+            if inferred is not None:
+                context.dayfirst_preference = inferred
         for _, rec in df.iterrows():
-            date_val = self._parse_date(str(rec.get(col_map["date"], "")))
+            date_val = self._parse_date(
+                str(rec.get(col_map["date"], "")),
+                context=context,
+                previous_date=prev_date,
+            )
             if date_val is None:
                 continue
 
@@ -716,10 +1169,15 @@ class BankStatementExtractor:
                     "extraction_confidence": "high",
                 }
             )
+            prev_date = date_val
         return rows
 
     def _extract_statement_metadata(self, text: str, context: ParseContext) -> ParseContext:
         """Extract statement-level metadata for enrichment fields."""
+        if context.dayfirst_preference is None:
+            inferred = self._infer_dayfirst_preference(text.splitlines())
+            if inferred is not None:
+                context.dayfirst_preference = inferred
         if not context.bank_name:
             m = BANK_PATTERN.search(text)
             if m:
@@ -730,24 +1188,45 @@ class BankStatementExtractor:
                 context.account_number = m.group(1).strip()
         if not context.period_start or not context.period_end:
             for line in text.splitlines():
-                m = PERIOD_PATTERN.search(line)
-                if not m:
+                cleaned = " ".join((line or "").split())
+                if not cleaned:
                     continue
-                start = self._parse_date(m.group(1).strip())
-                end = self._parse_date(m.group(2).strip())
-                if start:
-                    context.period_start = start
-                if end:
-                    context.period_end = end
+                lowered = cleaned.lower()
+                m = PERIOD_PATTERN.search(cleaned)
+                date_tokens = DATE_TOKEN_PATTERN.findall(cleaned)
+                if m:
+                    candidate_tokens = [m.group(1).strip(), m.group(2).strip()]
+                elif len(date_tokens) >= 2 and ("period" in lowered or ("from" in lowered and "to" in lowered)):
+                    candidate_tokens = [date_tokens[0], date_tokens[1]]
+                else:
+                    continue
+
+                start = self._parse_date(candidate_tokens[0], context=context)
+                end = self._parse_date(candidate_tokens[1], context=context, previous_date=start)
+                start_dt, end_dt = self._normalize_period_bounds(start, end)
+                if start_dt:
+                    context.period_start = start_dt.isoformat()
+                if end_dt:
+                    context.period_end = end_dt.isoformat()
                 if context.period_start and context.period_end:
                     break
         return context
 
-    def _parse_date(self, token: str, prefer_dayfirst: bool | None = None) -> str | None:
+    def _parse_date(
+        self,
+        token: str,
+        prefer_dayfirst: bool | None = None,
+        context: ParseContext | None = None,
+        previous_date: str | None = None,
+    ) -> str | None:
         """Parse many date variants into ISO-8601 date strings."""
-        value = " ".join((token or "").split())
+        value = " ".join((token or "").replace(",", " ").split())
         if not value:
             return None
+
+        inferred_dayfirst = prefer_dayfirst
+        if inferred_dayfirst is None and context is not None:
+            inferred_dayfirst = context.dayfirst_preference
 
         # Handle year-first formats explicitly to avoid dayfirst ambiguity.
         if re.match(r"^\d{4}[\/\-.]\d{1,2}[\/\-.]\d{1,2}$", value):
@@ -758,36 +1237,11 @@ class BankStatementExtractor:
                 except ValueError:
                     continue
 
-        if re.match(r"^\d{1,2}[\/\-.]\d{1,2}$", value):
-            year = datetime.now().year
-            sep = "/" if "/" in value else ("-" if "-" in value else ".")
-            left, right = [int(p) for p in value.split(sep)]
+        if self._is_partial_date_token(value):
+            partial = self._select_best_partial_date(value, inferred_dayfirst, context, previous_date)
+            return partial.isoformat() if partial else None
 
-            # Resolve obvious non-ambiguous cases first.
-            inferred_dayfirst = prefer_dayfirst
-            if left > 12 and right <= 12:
-                inferred_dayfirst = True
-            elif right > 12 and left <= 12:
-                inferred_dayfirst = False
-            elif inferred_dayfirst is None:
-                # Practical defaults by separator when still ambiguous.
-                inferred_dayfirst = True if sep == "." else False
-
-            fmts = [
-                ("%d/%m", "%d-%m", "%d.%m"),
-                ("%m/%d", "%m-%d", "%m.%d"),
-            ]
-            format_order = [fmts[0], fmts[1]] if inferred_dayfirst else [fmts[1], fmts[0]]
-
-            for group in format_order:
-                for fmt in group:
-                    try:
-                        dt = datetime.strptime(value, fmt).replace(year=year)
-                        return dt.date().isoformat()
-                    except ValueError:
-                        continue
-
-        parse_orders = [prefer_dayfirst, not prefer_dayfirst] if prefer_dayfirst is not None else [True, False]
+        parse_orders = [inferred_dayfirst, not inferred_dayfirst] if inferred_dayfirst is not None else [True, False]
         for day_first in parse_orders:
             try:
                 dt = date_parser.parse(value, dayfirst=day_first, fuzzy=False)
@@ -798,6 +1252,140 @@ class BankStatementExtractor:
                 continue
 
         return None
+
+    def _select_best_partial_date(
+        self,
+        token: str,
+        prefer_dayfirst: bool | None,
+        context: ParseContext | None,
+        previous_date: str | None,
+    ) -> date | None:
+        """Resolve a partial date token to the most plausible year."""
+        candidates: list[date] = []
+        years = self._candidate_years(context)
+        prev_dt = self._safe_date_from_iso(previous_date)
+        start_dt = self._safe_date_from_iso(context.period_start) if context else None
+        end_dt = self._safe_date_from_iso(context.period_end) if context else None
+
+        if re.match(r"^\d{1,2}[\/\-.]\d{1,2}$", token):
+            sep = "/" if "/" in token else ("-" if "-" in token else ".")
+            left, right = [int(p) for p in token.split(sep)]
+            dayfirst = prefer_dayfirst
+            if left > 12 and right <= 12:
+                dayfirst = True
+            elif right > 12 and left <= 12:
+                dayfirst = False
+            elif dayfirst is None:
+                dayfirst = True if sep == "." else False
+
+            if dayfirst is True:
+                ordered_formats = [f"%d{sep}%m"]
+            elif dayfirst is False:
+                ordered_formats = [f"%m{sep}%d"]
+            else:
+                ordered_formats = [f"%d{sep}%m", f"%m{sep}%d"]
+            for year in years:
+                for fmt in ordered_formats:
+                    try:
+                        candidates.append(datetime.strptime(f"{token} {year}", f"{fmt} %Y").date())
+                    except ValueError:
+                        continue
+        else:
+            formats = []
+            if re.match(r"^\d{1,2}\s+[A-Za-z]{3,9}$", token):
+                formats = ["%d %b", "%d %B"]
+            elif re.match(r"^[A-Za-z]{3,9}\s+\d{1,2}$", token):
+                formats = ["%b %d", "%B %d"]
+
+            normalized = token.replace(",", "")
+            for year in years:
+                for fmt in formats:
+                    try:
+                        candidates.append(datetime.strptime(f"{normalized} {year}", f"{fmt} %Y").date())
+                    except ValueError:
+                        continue
+
+        if not candidates:
+            return None
+
+        unique_candidates = list(dict.fromkeys(candidates))
+        today = datetime.now().date()
+
+        def score(candidate: date) -> float:
+            value = 0.0
+            if start_dt and end_dt:
+                if start_dt <= candidate <= end_dt:
+                    value -= 5.0
+                elif candidate < start_dt:
+                    value += min((start_dt - candidate).days, 900) / 20.0
+                else:
+                    value += min((candidate - end_dt).days, 900) / 20.0
+
+            if prev_dt:
+                delta = (candidate - prev_dt).days
+                if delta < -7:
+                    value += 6.0 + abs(delta) / 15.0
+                else:
+                    value += abs(delta) / 180.0
+
+            future_days = (candidate - today).days
+            if future_days > 45:
+                value += 4.0 + future_days / 60.0
+
+            value += abs((candidate - today).days) / 5000.0
+            return value
+
+        return min(unique_candidates, key=score)
+
+    @staticmethod
+    def _is_partial_date_token(value: str) -> bool:
+        """Return True for dates lacking an explicit year component."""
+        return bool(
+            re.match(r"^\d{1,2}[\/\-.]\d{1,2}$", value)
+            or re.match(r"^\d{1,2}\s+[A-Za-z]{3,9}$", value)
+            or re.match(r"^[A-Za-z]{3,9}\s+\d{1,2}$", value)
+        )
+
+    def _candidate_years(self, context: ParseContext | None) -> list[int]:
+        """Build a small plausible year set for resolving partial dates."""
+        today = datetime.now().date()
+        years = {today.year - 1, today.year, today.year + 1}
+        if context is not None:
+            for token in (context.period_start, context.period_end):
+                dt = self._safe_date_from_iso(token)
+                if dt is None:
+                    continue
+                years.update({dt.year - 1, dt.year, dt.year + 1})
+        return sorted(years)
+
+    @staticmethod
+    def _safe_date_from_iso(value: str | None) -> date | None:
+        """Convert an ISO date string to a date object when possible."""
+        if not value:
+            return None
+        try:
+            return date.fromisoformat(str(value)[:10])
+        except ValueError:
+            return None
+
+    def _normalize_period_bounds(self, start: str | None, end: str | None) -> tuple[date | None, date | None]:
+        """Normalize statement period bounds, including common year-rollover cases."""
+        start_dt = self._safe_date_from_iso(start)
+        end_dt = self._safe_date_from_iso(end)
+        if start_dt and end_dt and start_dt > end_dt:
+            if start_dt.month >= 11 and end_dt.month <= 2:
+                try:
+                    end_dt = end_dt.replace(year=end_dt.year + 1)
+                except ValueError:
+                    pass
+            elif end_dt.month >= 11 and start_dt.month <= 2:
+                try:
+                    start_dt = start_dt.replace(year=start_dt.year - 1)
+                except ValueError:
+                    pass
+            if start_dt and end_dt and start_dt > end_dt:
+                start_dt, end_dt = end_dt, start_dt
+        return start_dt, end_dt
 
     def _infer_dayfirst_preference(self, samples: Iterable[str]) -> bool | None:
         """Infer day-first preference from a batch of date-containing strings."""
@@ -981,7 +1569,7 @@ class BankStatementExtractor:
         cleaned = " ".join((line or "").strip().split())
         if not cleaned:
             return True
-        return any(pat.match(cleaned) for pat in NOISE_PATTERNS)
+        return any(pat.search(cleaned) for pat in NOISE_PATTERNS)
 
     def _ocr_pdf_page(self, page: pdfplumber.page.Page) -> str:
         """OCR a PDF page image using easyocr first, then pytesseract if available."""
@@ -1068,6 +1656,15 @@ class BankStatementExtractor:
         for key in OUTPUT_COLUMNS:
             if key not in normalized:
                 normalized[key] = None
+
+        for numeric_key in ("amount", "balance_after"):
+            value = normalized.get(numeric_key)
+            if value in (None, ""):
+                continue
+            try:
+                normalized[numeric_key] = round(float(value), 2)
+            except Exception:
+                normalized[numeric_key] = None
 
         if normalized["extraction_confidence"] not in {"high", "medium", "low"}:
             normalized["extraction_confidence"] = "low"

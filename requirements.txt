@@ -11,9 +11,7 @@ pydantic==2.10.4
 pydantic-settings==2.7.1
 python-multipart==0.0.20
 sqlalchemy==2.0.36
-psycopg2-binary==2.9.10
 firebase-admin==6.6.0
-httpx==0.28.1
 pdfplumber==0.11.4
 pymupdf==1.25.3
 pytesseract==0.3.13
@@ -23,10 +21,9 @@ easyocr==1.7.1
 beautifulsoup4==4.12.3
 openpyxl==3.1.5
 spacy==3.8.11
-transformers==4.50.3
-torch==2.6.0
-regex==2024.11.6
-langdetect==1.0.9
 opencv-python==4.10.0.84
 python-dateutil==2.9.0.post0
 joblib==1.4.2
+
+# Optional for Neon/PostgreSQL deployments (not required when using SQLite fallback)
+# psycopg2-binary==2.9.10
