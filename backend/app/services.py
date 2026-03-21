@@ -35,9 +35,6 @@ def init_llm_services() -> None:
 
     # Pool all keys provided in .env to drastically enhance load-balanced rate limits
     raw_keys = [
-        config.GEMINI_PRO_API_KEY,
-        config.GEMINI_FLASH_API_KEY_1,
-        config.GEMINI_FLASH_API_KEY_2,
         config.GEMINI_API_KEY,
     ]
     active_keys: list[str] = []
@@ -52,7 +49,7 @@ def init_llm_services() -> None:
     # RAG index gets the pure Gemini client
     gemini_embedding_client = GeminiClient(
         api_keys=active_keys,
-        model=config.GEMINI_PRO_MODEL,
+        model=config.GEMINI_EMBEDDING_MODEL,
     )
     
     # Use Groq for chatbot unconditionally

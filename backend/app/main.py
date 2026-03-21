@@ -82,6 +82,5 @@ async def health_check() -> dict:
     return {
         "status": "healthy",
         "app": config.APP_NAME,
-        "gemini_pro": bool(config.GEMINI_PRO_API_KEY),
-        "gemini_flash": bool(config.GEMINI_FLASH_API_KEY_1),
+        "groq_chat": bool(config.GROQ_API_KEY),
     }
