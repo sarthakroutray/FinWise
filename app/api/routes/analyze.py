@@ -1,9 +1,6 @@
 from typing import List, Dict, Any
 
 import io
-import re
-import tempfile
-from pathlib import Path as _Path
 from datetime import date, timedelta
 
 import pandas as pd
@@ -11,9 +8,7 @@ from fastapi import APIRouter, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.ingestion.pdf_extractor import BankStatementPDFExtractor
-from app.ingestion.nlp_parser import TransactionNLPParser
-from app.ingestion.parser import parse_statement
+from app.ingestion.parser import parse_statement, parse_statement_with_meta
 from app.features.engineer import engineer_features
 from app.scoring.health_score import compute_health_score
 from app.recommendations.engine import generate_recommendations
@@ -42,6 +37,7 @@ class TransactionRow(BaseModel):
     amount: float
     balance: float | None
     category: str
+    extraction_confidence: str = "high"
 
 
 class AnalyzeResponse(BaseModel):
@@ -55,33 +51,6 @@ class AnalyzeResponse(BaseModel):
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
-
-def _extract_pdf_with_meta(file_content: bytes) -> tuple[pd.DataFrame, str, int, int]:
-    """Run PDF extraction; return (df, method, pages, total_blocks)."""
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-        tmp.write(file_content)
-        tmp_path = tmp.name
-    try:
-        extractor = BankStatementPDFExtractor()
-        method = "native_pdf"
-        if not extractor._is_text_based(tmp_path):
-            method = "ocr"
-        raw_pages = extractor.extract(tmp_path)
-        pages = len(raw_pages)
-        parser = TransactionNLPParser()
-        df = parser.parse_pages(raw_pages)
-        full_text = "\n".join(raw_pages)
-        block_pattern = re.compile(
-            r"(?:\b\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{2,4}\b"
-            r"|\b\d{4}[/\-\.]\d{1,2}[/\-\.]\d{1,2}\b"
-            r"|\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))",
-            re.IGNORECASE,
-        )
-        total_blocks = max(len(block_pattern.findall(full_text)), 1)
-    finally:
-        _Path(tmp_path).unlink(missing_ok=True)
-    return df, method, pages, total_blocks
-
 
 def _build_forecast_points(forecast_values: list[float], last_date: date) -> List[ForecastPoint]:
     """Attach calendar dates to raw forecast floats."""
@@ -99,18 +68,13 @@ async def analyze(
     file: UploadFile = File(...),
     user_id: str = Form(default="default"),
 ) -> AnalyzeResponse:
-    """Upload CSV or PDF → full analysis pipeline → prediction + RAG indexing."""
-    filename = file.filename or ""
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    """Upload statement file → extraction pipeline → prediction + RAG indexing."""
 
-    # --- Stage 1: Parse ---
-    if ext == "csv":
-        method, pages = "csv", 1
-        raw_df = parse_statement(file)
-        total_blocks = len(raw_df)
-    else:
-        content = await file.read()
-        raw_df, method, pages, total_blocks = _extract_pdf_with_meta(content)
+    # --- Stage 1: Parse (all supported formats) ---
+    raw_df, parse_meta = parse_statement_with_meta(file)
+    method = str(parse_meta.get("method", "auto"))
+    pages = int(parse_meta.get("pages", 1))
+    total_blocks = int(parse_meta.get("total_blocks", max(len(raw_df), 1)))
 
     rows_extracted = len(raw_df)
     if rows_extracted == 0:
@@ -168,12 +132,17 @@ async def analyze(
         tx_df["category"] = featured_df["category"].values
     else:
         tx_df["category"] = "Other"
+    # Carry per-row extraction confidence from the raw DataFrame if available
+    if "extraction_confidence" in raw_df.columns:
+        tx_df["extraction_confidence"] = raw_df["extraction_confidence"].reindex(tx_df.index).fillna("high").values
+    else:
+        tx_df["extraction_confidence"] = "high"
     tx_df["date"] = tx_df["date"].dt.strftime("%Y-%m-%d")
     tx_df["description"] = tx_df["description"].fillna("").astype(str)
     tx_df["category"] = tx_df["category"].fillna("Other").astype(str)
     transactions = [
         TransactionRow(**row)
-        for row in tx_df[["date", "description", "amount", "balance", "category"]].to_dict(orient="records")
+        for row in tx_df[["date", "description", "amount", "balance", "category", "extraction_confidence"]].to_dict(orient="records")
     ]
 
     return AnalyzeResponse(
@@ -199,14 +168,7 @@ async def extract(file: UploadFile = File(...)) -> StreamingResponse:
     Returns the extracted transactions as a clean, downloadable CSV — useful for
     inspection before running the full /analyze pipeline.
     """
-    filename = file.filename or ""
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-
-    if ext == "csv":
-        raw_df = parse_statement(file)
-    else:
-        content = await file.read()
-        raw_df, _, _, _ = _extract_pdf_with_meta(content)
+    raw_df = parse_statement(file)
 
     csv_bytes = raw_df.to_csv(index=False).encode("utf-8")
     return StreamingResponse(

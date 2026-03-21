@@ -5,6 +5,7 @@ import {
   Wallet,
   ShieldAlert,
   Sparkles,
+  FolderOpen,
   Settings,
   Menu,
   Bell,
@@ -25,11 +26,13 @@ import { motion, AnimatePresence } from "motion/react";
 import { useTheme } from "./ThemeProvider";
 import { Toaster } from "sonner";
 import { healthCheck } from "../services/api";
+import { useAuth } from "../auth/AuthProvider";
 
 const navItems = [
   { name: "Overview", icon: LayoutDashboard, path: "/" },
   { name: "Transactions", icon: Wallet, path: "/transactions" },
   { name: "Insights & Risk", icon: ShieldAlert, path: "/insights" },
+  { name: "Documents", icon: FolderOpen, path: "/documents" },
   { name: "AI Advisor", icon: Sparkles, path: "/assistant", special: true },
 ];
 
@@ -46,6 +49,7 @@ export function Layout() {
   const [searchFocused, setSearchFocused] = useState(false);
   const location = useLocation();
   const { theme, toggleTheme, accentColors } = useTheme();
+  const { user, logout } = useAuth();
   const notifRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -176,13 +180,32 @@ export function Layout() {
           </Link>
           <div className="mt-4 flex items-center gap-3 px-3">
             <div className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: `linear-gradient(135deg, ${ac[500]}, ${ac[400]})` }}>
-              JS
+              {user?.email?.slice(0, 2).toUpperCase() || "GU"}
             </div>
             <div className="flex-1 min-w-0">
-              <p className={cn("text-sm font-medium truncate", isDark ? "text-white" : "text-slate-900")}>John Smith</p>
-              <p className={cn("text-xs truncate", isDark ? "text-slate-400" : "text-slate-500")}>Pro Member</p>
+              <p className={cn("text-sm font-medium truncate", isDark ? "text-white" : "text-slate-900")}>
+                {user?.email || "Guest User"}
+              </p>
+              <p className={cn("text-xs truncate", isDark ? "text-slate-400" : "text-slate-500")}>
+                {user ? "Authenticated" : "Sign in from Documents"}
+              </p>
             </div>
           </div>
+          {user && (
+            <button
+              onClick={() => {
+                void logout();
+              }}
+              className={cn(
+                "mt-3 w-full px-3 py-2 rounded-lg text-xs font-medium transition-colors",
+                isDark
+                  ? "bg-slate-800 text-slate-200 hover:bg-slate-700"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              )}
+            >
+              Sign out
+            </button>
+          )}
           <div className={cn("mt-3 flex items-center gap-2 px-3 text-xs", isDark ? "text-slate-500" : "text-slate-400")}>
             <div className={cn("w-2 h-2 rounded-full", backendOnline === true ? "bg-emerald-400" : backendOnline === false ? "bg-rose-400" : "bg-slate-500 animate-pulse")} />
             {backendOnline === true ? "Backend connected" : backendOnline === false ? "Backend offline" : "Checking..."}

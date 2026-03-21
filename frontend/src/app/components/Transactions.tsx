@@ -19,17 +19,6 @@ interface ImportedTransaction {
   note: string;
 }
 
-const mockTransactions: ImportedTransaction[] = [
-  { id: "tx1", date: "2024-03-20 14:32", merchant: "Starbucks", amount: -142.50, category: "Food & Dining", status: "anomaly", score: 0.98, type: "Unusual Amount", location: "Downtown, NYC", note: "Amount is 25x your usual Starbucks average ($5.50). Flagged by Isolation Forest with 98% confidence." },
-  { id: "tx2", date: "2024-03-20 09:15", merchant: "Whole Foods", amount: -84.20, category: "Groceries", status: "normal", score: 0.12, location: "Midtown, NYC", note: "Regular weekly grocery purchase. Within expected range." },
-  { id: "tx3", date: "2024-03-19 18:00", merchant: "Uber", amount: -24.50, category: "Transport", status: "normal", score: 0.05, location: "Brooklyn, NYC", note: "Standard ride fare, consistent with your commute pattern." },
-  { id: "tx4", date: "2024-03-19 12:30", merchant: "Acme Corp Salary", amount: 4250.00, category: "Income", status: "normal", score: 0.01, location: "Direct Deposit", note: "Monthly salary deposit. On schedule." },
-  { id: "tx5", date: "2024-03-18 21:45", merchant: "Netflix", amount: -45.00, category: "Entertainment", status: "anomaly", score: 0.89, type: "Duplicate Charge", location: "Online", note: "Duplicate charge detected. Your Netflix plan is $15/month. This appears to be a triple charge." },
-  { id: "tx6", date: "2024-03-18 10:00", merchant: "Electric Bill", amount: -112.00, category: "Utilities", status: "normal", score: 0.08, location: "ConEd Auto-Pay", note: "Monthly utility payment. 5% higher than last month." },
-  { id: "tx7", date: "2024-03-17 15:20", merchant: "Amazon", amount: -45.99, category: "Shopping", status: "normal", score: 0.15, location: "Online", note: "Online purchase. Within your typical Amazon spending." },
-  { id: "tx8", date: "2024-03-16 08:30", merchant: "Shell Station", amount: -55.00, category: "Transport", status: "normal", score: 0.11, location: "Hoboken, NJ", note: "Fuel purchase. Consistent with bi-weekly fill-up pattern." },
-];
-
 export function Transactions() {
   const [filter, setFilter] = useState<"all" | "anomalies">("all");
   const [search, setSearch] = useState("");
@@ -43,9 +32,9 @@ export function Transactions() {
   const ac = accentColors;
   const { data: finData, uploadFile, isLoading: finLoading } = useFinData();
 
-  // Derive transactions from backend data or use mocks
+  // Derive transactions directly from backend data.
   const transactions: ImportedTransaction[] = useMemo(() => {
-    if (!finData?.transactions || finData.transactions.length === 0) return mockTransactions;
+    if (!finData?.transactions || finData.transactions.length === 0) return [];
     const anomalyDescs = new Set(finData.anomalies.map(a => a.description));
     return finData.transactions.map((t, i) => ({
       id: `tx-${i}`,
@@ -295,7 +284,7 @@ export function Transactions() {
                     </div>
                     <div className="text-center">
                       <p className={cn("text-sm font-medium", textPrimary)}>Import Complete!</p>
-                      <p className={cn("text-xs mt-1", textSecondary)}>{importedRows.length} transactions added · 1 anomaly detected</p>
+                      <p className={cn("text-xs mt-1", textSecondary)}>{finData?.transactions?.length ?? 0} transactions available from backend analysis</p>
                     </div>
                     <button onClick={handleImportClose} className="px-4 py-2 rounded-lg text-xs font-medium text-white transition-colors" style={{ backgroundColor: ac[500] }}>
                       Done

@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "FinWise AI"
     DEBUG: bool = False
     DB_URL: str = "sqlite:///./finwise.db"
+    NEON_DATABASE_URL: str = ""
     MODEL_DIR: str = str(Path(__file__).resolve().parent.parent.parent / "models_store")
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
     CHUNK_SIZE: int = 512
@@ -15,8 +16,12 @@ class Settings(BaseSettings):
     LSTM_EPOCHS: int = 50
     OCR_DPI: int = 300
     OCR_LANG: str = "eng"
+    TESSERACT_CMD: str = ""
     NER_MODEL: str = "en_core_web_trf"
     PDF_PARSER: str = "auto"
+    FIREBASE_PROJECT_ID: str = ""
+    FIREBASE_CREDENTIALS_PATH: str = ""
+    FIREBASE_CREDENTIALS_JSON: str = ""
 
     class Config:
         env_file = ".env"

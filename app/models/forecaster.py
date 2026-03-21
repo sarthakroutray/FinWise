@@ -73,8 +73,9 @@ class LSTMForecaster:
                 self.model = None
 
 
-    def predict(self, series: pd.Series, horizon: int = 30) -> np.ndarray:
+    def predict(self, series: pd.Series, horizon: int = 30, user_id: str | None = None) -> np.ndarray:
         """Iteratively forecast `horizon` days ahead. Returns inverse-transformed array."""
+        _ = user_id  # Reserved for future per-user models.
         if self.model is None:
             self.fit(series)
         if self.model is None:

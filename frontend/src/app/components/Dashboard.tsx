@@ -50,42 +50,6 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 function getCatColor(cat: string) { return CATEGORY_COLORS[cat] || "#6366f1"; }
 
-const mockSpendData = [
-  { name: 'Jan', actual: 4000, predicted: 4000 },
-  { name: 'Feb', actual: 3000, predicted: 3200 },
-  { name: 'Mar', actual: 2000, predicted: 2500 },
-  { name: 'Apr', actual: 2780, predicted: 2800 },
-  { name: 'May', actual: 1890, predicted: 2000 },
-  { name: 'Jun', actual: 2390, predicted: 2500 },
-  { name: 'Jul', actual: 3490, predicted: 3000 },
-  { name: 'Aug', predicted: 3100 },
-  { name: 'Sep', predicted: 3400 },
-];
-
-const mockBudgetData = [
-  { category: "Housing", spent: 1200, budget: 1500, color: "#6366f1" },
-  { category: "Food & Dining", spent: 800, budget: 600, color: "#ec4899" },
-  { category: "Transport", spent: 400, budget: 500, color: "#8b5cf6" },
-  { category: "Entertainment", spent: 300, budget: 350, color: "#f43f5e" },
-  { category: "Utilities", spent: 200, budget: 250, color: "#10b981" },
-];
-
-const mockCategoryData = [
-  { name: 'Housing', value: 1200, color: '#6366f1' },
-  { name: 'Food', value: 800, color: '#8b5cf6' },
-  { name: 'Transport', value: 400, color: '#ec4899' },
-  { name: 'Entertainment', value: 300, color: '#f43f5e' },
-  { name: 'Utilities', value: 200, color: '#10b981' },
-];
-
-const mockAnomalies = [
-  { id: 1, merchant: "Starbucks", amount: 142.50, date: "2 hrs ago", type: "Unusual Spike", severity: "high" as const },
-  { id: 2, merchant: "Netflix", amount: 45.00, date: "1 day ago", type: "Duplicate Charge", severity: "medium" as const },
-];
-
-const mockHealthScore = 74;
-const mockHealthData = [{ name: 'Score', value: mockHealthScore, fill: mockHealthScore >= 80 ? '#10b981' : mockHealthScore >= 60 ? '#f59e0b' : '#ef4444' }];
-
 // Mouse-following glow hook
 function useMouseGlow(glowColor: string = "rgba(99,102,241,0.12)", glowSize: number = 250) {
   const ref = useRef<HTMLDivElement>(null);
@@ -170,16 +134,16 @@ export function Dashboard() {
   const dragCounterRef = useRef(0);
 
   // Derive chart data from real backend response
-  const healthScore = finData?.health_score?.score ?? mockHealthScore;
+  const healthScore = finData?.health_score?.score ?? 0;
   const healthData = [{ name: 'Score', value: healthScore, fill: healthScore >= 80 ? '#10b981' : healthScore >= 60 ? '#f59e0b' : '#ef4444' }];
 
   const categoryData = useMemo(() => {
-    if (!finData?.category_summary || Object.keys(finData.category_summary).length === 0) return mockCategoryData;
+    if (!finData?.category_summary || Object.keys(finData.category_summary).length === 0) return [];
     return Object.entries(finData.category_summary).map(([name, value]) => ({ name, value: Math.abs(value), color: getCatColor(name) }));
   }, [finData]);
 
   const spendData = useMemo(() => {
-    if (!finData?.forecast || finData.forecast.length === 0) return mockSpendData;
+    if (!finData?.forecast || finData.forecast.length === 0) return [];
     return finData.forecast.slice(0, 9).map((pt, i) => ({
       name: new Date(pt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       predicted: Math.round(pt.predicted_amount),
@@ -187,37 +151,31 @@ export function Dashboard() {
   }, [finData]);
 
   const anomalies = useMemo(() => {
-    if (!finData?.anomalies || finData.anomalies.length === 0) return mockAnomalies;
+    if (!finData?.anomalies || finData.anomalies.length === 0) return [];
     return finData.anomalies.map((a, i) => ({ id: i + 1, merchant: a.description, amount: Math.abs(a.amount), date: a.date, type: "Anomaly Detected", severity: "high" as const }));
   }, [finData]);
 
   const budgetData = useMemo(() => {
-    if (!finData?.category_summary || Object.keys(finData.category_summary).length === 0) return mockBudgetData;
+    if (!finData?.category_summary || Object.keys(finData.category_summary).length === 0) return [];
     return Object.entries(finData.category_summary).slice(0, 5).map(([category, spent]) => ({
       category, spent: Math.abs(spent), budget: Math.abs(spent) * 1.2, color: getCatColor(category),
     }));
   }, [finData]);
 
   const totalBalance = useMemo(() => {
-    if (!finData?.transactions) return "$14,250.00";
+    if (!finData?.transactions || finData.transactions.length === 0) return "$0.00";
     const lastBal = finData.transactions.find(t => t.balance != null)?.balance;
-    return lastBal != null ? `$${lastBal.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : "$14,250.00";
+    return lastBal != null ? `$${lastBal.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : "$0.00";
   }, [finData]);
 
   const monthlySpend = useMemo(() => {
-    if (!finData?.transactions) return "$3,450.00";
+    if (!finData?.transactions || finData.transactions.length === 0) return "$0.00";
     const total = finData.transactions.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
     return `$${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
   }, [finData]);
 
   const recentTransactions = useMemo(() => {
-    if (!finData?.transactions || finData.transactions.length === 0) return [
-      { id: 1, name: "Whole Foods Market", category: "Food", amount: -84.20, date: "Today" },
-      { id: 2, name: "Salary Deposit", category: "Income", amount: 4250.00, date: "Yesterday", positive: true },
-      { id: 3, name: "Uber Ride", category: "Transport", amount: -24.50, date: "Yesterday" },
-      { id: 4, name: "Electric Bill", category: "Utilities", amount: -112.00, date: "3 days ago" },
-      { id: 5, name: "Amazon", category: "Shopping", amount: -45.99, date: "4 days ago" },
-    ];
+    if (!finData?.transactions || finData.transactions.length === 0) return [];
     return finData.transactions.slice(0, 5).map((t, i) => ({
       id: i + 1, name: t.description, category: t.category, amount: t.amount,
       date: t.date, positive: t.amount > 0,
@@ -553,7 +511,7 @@ export function Dashboard() {
                     </div>
                     <div className="text-center">
                       <p className={cn("text-sm font-medium", isDark ? "text-slate-200" : "text-slate-800")}>Import Complete!</p>
-                      <p className={cn("text-xs mt-1", textSecondary)}>{importedRows.length} transactions added · 1 anomaly detected</p>
+                      <p className={cn("text-xs mt-1", textSecondary)}>{finData?.transactions?.length ?? 0} transactions available from backend analysis</p>
                     </div>
                     <button onClick={handleImportClose} className="px-4 py-2 rounded-lg text-xs font-medium text-white transition-colors" style={{ backgroundColor: ac[500] }}>
                       Done
@@ -569,13 +527,13 @@ export function Dashboard() {
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <motion.div {...stagger(1)}>
-          <MetricCard title="Total Balance" value={totalBalance} change={finData ? `${finData.health_score.grade}` : "+2.4%"} isPositive={true} icon={Wallet} color="indigo" isDark={isDark} />
+          <MetricCard title="Total Balance" value={totalBalance} change={finData ? `${finData.health_score.grade}` : "No data"} isPositive={true} icon={Wallet} color="indigo" isDark={isDark} />
         </motion.div>
         <motion.div {...stagger(2)}>
-          <MetricCard title="Monthly Spend" value={monthlySpend} change={finData ? `${finData.health_score.forecast_trend}` : "-4.1%"} isPositive={true} icon={CreditCard} color="emerald" isDark={isDark} />
+          <MetricCard title="Monthly Spend" value={monthlySpend} change={finData ? `${finData.health_score.forecast_trend}` : "No data"} isPositive={true} icon={CreditCard} color="emerald" isDark={isDark} />
         </motion.div>
         <motion.div {...stagger(3)}>
-          <MetricCard title="Savings Rate" value={finData ? `${(finData.health_score.savings_rate * 100).toFixed(1)}%` : "24.5%"} change={finData ? `Score: ${finData.health_score.score}` : "+1.2%"} isPositive={true} icon={TrendingUp} color="purple" isDark={isDark} />
+          <MetricCard title="Savings Rate" value={finData ? `${(finData.health_score.savings_rate * 100).toFixed(1)}%` : "0.0%"} change={finData ? `Score: ${finData.health_score.score}` : "No data"} isPositive={true} icon={TrendingUp} color="purple" isDark={isDark} />
         </motion.div>
         
         {/* Risk Status */}
@@ -712,7 +670,7 @@ export function Dashboard() {
             </ResponsiveContainer>
             <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
               <span className={cn("text-xs", textSecondary)}>Total</span>
-              <span className={cn("font-bold text-lg", textPrimary)}>$2,900</span>
+              <span className={cn("font-bold text-lg", textPrimary)}>${categoryData.reduce((sum, c) => sum + c.value, 0).toLocaleString()}</span>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2">

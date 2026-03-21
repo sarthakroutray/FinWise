@@ -5,6 +5,7 @@ import { Transactions } from "./components/Transactions";
 import { Insights } from "./components/Insights";
 import { AIAssistant } from "./components/AIAssistant";
 import { Settings } from "./components/Settings";
+import { Documents } from "./components/Documents";
 
 export const router = createBrowserRouter([
   {
@@ -14,6 +15,7 @@ export const router = createBrowserRouter([
       { index: true, Component: Dashboard },
       { path: "transactions", Component: Transactions },
       { path: "insights", Component: Insights },
+      { path: "documents", Component: Documents },
       { path: "assistant", Component: AIAssistant },
       { path: "settings", Component: Settings },
     ],

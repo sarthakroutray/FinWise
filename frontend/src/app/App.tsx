@@ -3,13 +3,16 @@ import { RouterProvider } from "react-router";
 import { router } from "./routes";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { FinDataProvider } from "./store/useFinData";
+import { AuthProvider } from "./auth/AuthProvider";
 
 export default function App() {
   return (
     <ThemeProvider>
-      <FinDataProvider>
-        <RouterProvider router={router} />
-      </FinDataProvider>
+      <AuthProvider>
+        <FinDataProvider>
+          <RouterProvider router={router} />
+        </FinDataProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

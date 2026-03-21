@@ -54,9 +54,24 @@ export interface HealthCheckResponse {
   app: string;
 }
 
+export interface DocumentRecord {
+  id: number;
+  user_uid: string;
+  filename: string;
+  mime_type: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface DocumentCreatePayload {
+  filename: string;
+  mime_type?: string;
+  metadata?: Record<string, unknown>;
+}
+
 // ─── API functions ────────────────────────────────────────────────────────
 
-const BASE = ""; // Vite proxy handles forwarding to backend
+const BASE = import.meta.env.VITE_API_BASE || "/api";
 
 export async function analyzeFile(
   file: File,
@@ -103,4 +118,54 @@ export async function healthCheck(): Promise<HealthCheckResponse> {
   const res = await fetch(`${BASE}/health`);
   if (!res.ok) throw new Error(`Health check failed (${res.status})`);
   return res.json();
+}
+
+function buildAuthHeaders(idToken: string): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${idToken}`,
+  };
+}
+
+export async function listDocuments(idToken: string): Promise<DocumentRecord[]> {
+  const res = await fetch(`${BASE}/documents`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`List documents failed (${res.status}): ${text}`);
+  }
+  return res.json();
+}
+
+export async function createDocumentRecord(
+  idToken: string,
+  payload: DocumentCreatePayload
+): Promise<DocumentRecord> {
+  const res = await fetch(`${BASE}/documents`, {
+    method: "POST",
+    headers: buildAuthHeaders(idToken),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Create document failed (${res.status}): ${text}`);
+  }
+  return res.json();
+}
+
+export async function deleteDocumentRecord(idToken: string, documentId: number): Promise<void> {
+  const res = await fetch(`${BASE}/documents/${documentId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Delete document failed (${res.status}): ${text}`);
+  }
 }

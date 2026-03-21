@@ -39,3 +39,8 @@ dist/
 htmlcov/
 .mypy_cache/
 .ruff_cache/
+
+# Local secrets
+.secrets/
+firebase-service-account.json
+*firebase-adminsdk*.json

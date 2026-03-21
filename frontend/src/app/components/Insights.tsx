@@ -14,15 +14,6 @@ import { cn } from "../utils";
 import { useTheme } from "./ThemeProvider";
 import { useFinData } from "../store/useFinData";
 
-const mockPredictionData = [
-  { month: 'Jan', savings: 1200, predicted: 1200 },
-  { month: 'Feb', savings: 1500, predicted: 1400 },
-  { month: 'Mar', savings: 800,  predicted: 1100 },
-  { month: 'Apr', predicted: 950 },
-  { month: 'May', predicted: 1100 },
-  { month: 'Jun', predicted: 1400 },
-];
-
 export function Insights() {
   const { theme, accentColors } = useTheme();
   const isDark = theme === "dark";
@@ -34,7 +25,7 @@ export function Insights() {
   const textMuted = isDark ? "text-slate-500" : "text-slate-400";
 
   const predictionData = useMemo(() => {
-    if (!finData?.forecast || finData.forecast.length === 0) return mockPredictionData;
+    if (!finData?.forecast || finData.forecast.length === 0) return [];
     return finData.forecast.slice(0, 6).map((pt) => ({
       month: new Date(pt.date).toLocaleDateString('en-US', { month: 'short' }),
       predicted: Math.round(pt.predicted_amount),
@@ -42,17 +33,13 @@ export function Insights() {
   }, [finData]);
 
   const projectedTotal = useMemo(() => {
-    if (!finData?.forecast) return "+$3,450";
+    if (!finData?.forecast || finData.forecast.length === 0) return "$0";
     const total = finData.forecast.reduce((s, p) => s + p.predicted_amount, 0);
     return `${total >= 0 ? '+' : ''}$${Math.abs(Math.round(total)).toLocaleString()}`;
   }, [finData]);
 
   const recommendations = useMemo(() => {
-    if (!finData?.recommendations || finData.recommendations.length === 0) return [
-      { title: "Reduce subscription overlap", desc: "You are paying for Netflix, Hulu, and HBO. Canceling one could save you $180/year.", action: "Review Subs", priority: "High" },
-      { title: "Optimize idle cash", desc: "You have $4,500 sitting in checking. Moving $3,000 to a High-Yield Savings could earn $12/month.", action: "Move Funds", priority: "Medium" },
-      { title: "Upcoming large expense", desc: "Your annual car insurance ($800) is due next month. Allocate $200 more this month to prepare.", action: "Adjust Budget", priority: "High" },
-    ];
+    if (!finData?.recommendations || finData.recommendations.length === 0) return [];
     return finData.recommendations.map((rec, i) => ({
       title: rec.split('.')[0] || rec.slice(0, 40),
       desc: rec,

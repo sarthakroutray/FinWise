@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
-import { analyzeFile, type AnalyzeResponse } from "../services/api";
+import { analyzeFile, createDocumentRecord, type AnalyzeResponse } from "../services/api";
+import { getFirebaseIdToken } from "../auth/firebase";
 
 interface FinDataState {
   data: AnalyzeResponse | null;
@@ -22,6 +23,27 @@ export function FinDataProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await analyzeFile(file, userId);
       setData(result);
+
+      // Best-effort metadata persistence for authenticated users.
+      const idToken = await getFirebaseIdToken();
+      if (idToken) {
+        try {
+          await createDocumentRecord(idToken, {
+            filename: file.name,
+            mime_type: file.type || "application/octet-stream",
+            metadata: {
+              size_bytes: file.size,
+              analyzed_at: new Date().toISOString(),
+              transactions_count: result.transactions.length,
+              anomalies_count: result.anomalies.length,
+              health_score: result.health_score.score,
+              extraction_meta: result.extraction_meta,
+            },
+          });
+        } catch (persistError) {
+          console.warn("Document metadata persistence skipped:", persistError);
+        }
+      }
     } catch (err: any) {
       setError(err.message || "Analysis failed");
       throw err;
