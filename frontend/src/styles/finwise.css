@@ -1,0 +1,47 @@
+/* FinWise AI Light Mode Overrides */
+.light-mode {
+  --fw-bg-primary: #f8fafc;
+  --fw-bg-secondary: #ffffff;
+  --fw-bg-tertiary: #f1f5f9;
+  --fw-bg-hover: #e2e8f0;
+  --fw-border: #e2e8f0;
+  --fw-border-subtle: #f1f5f9;
+  --fw-text-primary: #0f172a;
+  --fw-text-secondary: #334155;
+  --fw-text-muted: #64748b;
+  --fw-text-faint: #94a3b8;
+}
+
+:root {
+  --fw-bg-primary: #020617;
+  --fw-bg-secondary: #0f172a;
+  --fw-bg-tertiary: #1e293b;
+  --fw-bg-hover: #334155;
+  --fw-border: #1e293b;
+  --fw-border-subtle: #1e293b80;
+  --fw-text-primary: #f8fafc;
+  --fw-text-secondary: #e2e8f0;
+  --fw-text-muted: #94a3b8;
+  --fw-text-faint: #64748b;
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 999px;
+}
+.light-mode .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+/* Smooth transitions for theme */
+.theme-transition,
+.theme-transition * {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease !important;
+}
