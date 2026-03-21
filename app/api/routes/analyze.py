@@ -4,12 +4,10 @@ import pandas as pd
 from fastapi import APIRouter, UploadFile, File
 from pydantic import BaseModel
 
-from app.ingestion.parser import parse_statement
-from app.ingestion.pdf_extractor import BankStatementPDFExtractor
+from app.ingestion.parser import parse_statement_with_meta
 from app.features.engineer import engineer_features
 from app.scoring.health_score import compute_health_score
 from app.recommendations.engine import generate_recommendations
-from app.core.config import config
 from app.services import anomaly_detector, forecaster, rag_pipeline
 
 router = APIRouter()
@@ -35,45 +33,10 @@ class AnalyzeResponse(BaseModel):
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(file: UploadFile = File(...)) -> AnalyzeResponse:
     """Full analysis pipeline: parse → engineer → anomaly → forecast → score → recommend."""
-    filename = file.filename or ""
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-
-    # Determine extraction method and page count for metadata
-    if ext == "csv":
-        method = "csv"
-        pages = 1
-        raw_df = parse_statement(file)
-        total_blocks = len(raw_df)
-    else:
-        method = "native_pdf"
-        # Check if OCR was needed
-        import tempfile
-        from pathlib import Path as _Path
-        content = await file.read()
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            tmp.write(content)
-            tmp_path = tmp.name
-        try:
-            extractor = BankStatementPDFExtractor()
-            if not extractor._is_text_based(tmp_path):
-                method = "ocr"
-            raw_pages = extractor.extract(tmp_path)
-            pages = len(raw_pages)
-            from app.ingestion.nlp_parser import TransactionNLPParser
-            parser = TransactionNLPParser()
-            raw_df = parser.parse_pages(raw_pages)
-            # Count transaction blocks for confidence
-            import re
-            full_text = "\n".join(raw_pages)
-            block_pattern = re.compile(
-                r"(?:\b\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{2,4}\b"
-                r"|\b\d{4}[/\-\.]\d{1,2}[/\-\.]\d{1,2}\b"
-                r"|\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))",
-                re.IGNORECASE,
-            )
-            total_blocks = len(block_pattern.findall(full_text))
-        finally:
-            _Path(tmp_path).unlink(missing_ok=True)
+    raw_df, parse_meta = parse_statement_with_meta(file)
+    method = str(parse_meta.get("method", "auto"))
+    pages = int(parse_meta.get("pages", 1) or 1)
+    total_blocks = int(parse_meta.get("total_blocks", len(raw_df)) or len(raw_df))
 
     # Feature engineering
     featured_df = engineer_features(raw_df)
@@ -120,7 +83,7 @@ async def analyze(file: UploadFile = File(...)) -> AnalyzeResponse:
         category_summary = cat_spend.to_dict()
 
     # Extraction confidence
-    rows_extracted = len(raw_df)
+    rows_extracted = int(parse_meta.get("rows_extracted", len(raw_df)) or len(raw_df))
     confidence = rows_extracted / total_blocks if total_blocks > 0 else 1.0
 
     # Format forecast for frontend (List[Dict[str, Any]])
