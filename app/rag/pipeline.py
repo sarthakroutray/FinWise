@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 import faiss
@@ -11,9 +11,16 @@ class RAGPipeline:
     """Retrieval-Augmented Generation pipeline using FAISS + SentenceTransformer."""
 
     def __init__(self) -> None:
-        self.encoder = SentenceTransformer(config.EMBEDDING_MODEL)
-        self.index: faiss.IndexFlatL2 | None = None
+        self._encoder: Optional[SentenceTransformer] = None
+        self.index: Optional[faiss.IndexFlatL2] = None
         self.documents: List[str] = []
+
+    @property
+    def encoder(self) -> SentenceTransformer:
+        """Lazy-load the embedding model on first access."""
+        if self._encoder is None:
+            self._encoder = SentenceTransformer(config.EMBEDDING_MODEL)
+        return self._encoder
 
     def build_index(self, documents: List[str]) -> None:
         """Encode documents and add to FAISS flat L2 index."""

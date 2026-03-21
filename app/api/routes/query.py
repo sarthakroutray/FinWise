@@ -3,11 +3,9 @@ from typing import List
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.rag.pipeline import RAGPipeline
+from app import services
 
 router = APIRouter()
-
-_rag_pipeline = RAGPipeline()
 
 
 class QueryRequest(BaseModel):
@@ -21,17 +19,14 @@ class QueryResponse(BaseModel):
 
 @router.post("/query", response_model=QueryResponse)
 async def query(request: QueryRequest) -> QueryResponse:
-    """Query the RAG pipeline with a natural language question."""
-    results = _rag_pipeline.query(request.question, top_k=3)
-    # Compose answer from retrieved documents
+    """Query the shared RAG pipeline with a natural language question."""
+    results = services.rag_pipeline.query(request.question, top_k=3)
     if not results or results[0].startswith("No documents"):
         return QueryResponse(
             answer="No financial data available yet. Please upload a bank statement first.",
             sources=[],
         )
-    answer_parts = [
-        f"Based on your financial data, here are the most relevant findings:",
-    ]
+    answer_parts = ["Based on your financial data, here are the most relevant findings:"]
     for i, doc in enumerate(results, 1):
         answer_parts.append(f"{i}. {doc}")
     return QueryResponse(

@@ -1,0 +1,66 @@
+date,description,amount,balance
+2025-01-02,Salary Deposit,5000.00,5000.00
+2025-01-03,Starbucks Coffee,-4.50,4995.50
+2025-01-04,Uber Ride to Office,-12.00,4983.50
+2025-01-05,Amazon Purchase Electronics,-250.00,4733.50
+2025-01-06,Netflix Subscription,-15.99,4717.51
+2025-01-07,Walmart Groceries,-85.30,4632.21
+2025-01-08,Shell Gas Station,-45.00,4587.21
+2025-01-09,Restaurant Dinner,-62.00,4525.21
+2025-01-10,Electric Bill Payment,-120.00,4405.21
+2025-01-11,Transfer to Savings,-500.00,3905.21
+2025-01-12,McDonalds Lunch,-8.50,3896.71
+2025-01-13,Spotify Premium,-9.99,3886.72
+2025-01-14,Pharmacy Medicine,-32.50,3854.22
+2025-01-15,Salary Deposit,5000.00,8854.22
+2025-01-16,Costco Shopping,-175.00,8679.22
+2025-01-17,Lyft Ride,-18.00,8661.22
+2025-01-18,Pizza Hut Delivery,-22.00,8639.22
+2025-01-19,Internet Bill Broadband,-79.99,8559.23
+2025-01-20,Movie Theater Tickets,-30.00,8529.23
+2025-01-21,Target Clothing Store,-95.00,8434.23
+2025-01-22,SUSPICIOUS LARGE WITHDRAWAL,-2500.00,5934.23
+2025-01-23,Dominos Pizza,-15.50,5918.73
+2025-01-24,Bus Metro Pass,-55.00,5863.73
+2025-01-25,Freelance Income Deposit,1200.00,7063.73
+2025-01-26,Home Depot Supplies,-210.00,6853.73
+2025-01-27,Starbucks Coffee,-5.25,6848.48
+2025-01-28,Hospital Emergency Visit,-850.00,5998.48
+2025-01-29,Uber Eats Food Delivery,-28.00,5970.48
+2025-01-30,Water Utility Bill,-42.00,5928.48
+2025-01-31,NEFT Transfer to Friend,-300.00,5628.48
+2025-02-01,Salary Deposit,5000.00,10628.48
+2025-02-02,Walmart Groceries,-92.00,10536.48
+2025-02-03,Shell Gas Station,-48.50,10487.98
+2025-02-04,Disney Plus Subscription,-13.99,10473.99
+2025-02-05,Doctor Clinic Visit,-150.00,10323.99
+2025-02-06,Amazon Shopping Books,-45.00,10278.99
+2025-02-07,Restaurant Brunch,-55.00,10223.99
+2025-02-08,Parking Garage,-20.00,10203.99
+2025-02-09,Concert Event Tickets,-120.00,10083.99
+2025-02-10,Electric Bill Payment,-118.00,9965.99
+2025-02-11,Transfer to Savings,-500.00,9465.99
+2025-02-12,Starbucks Coffee,-4.75,9461.24
+2025-02-13,UNUSUAL LARGE ELECTRONICS BUY,-3200.00,6261.24
+2025-02-14,Uber Ride,-14.00,6247.24
+2025-02-15,Salary Deposit,5000.00,11247.24
+2025-02-16,Costco Bulk Shopping,-220.00,11027.24
+2025-02-17,Subway Sandwich,-7.50,11019.74
+2025-02-18,Phone Mobile Bill,-85.00,10934.74
+2025-02-19,Gaming Steam Purchase,-60.00,10874.74
+2025-02-20,IKEA Furniture,-430.00,10444.74
+2025-02-21,Bakery Coffee Cake,-12.00,10432.74
+2025-02-22,Train Rail Ticket,-35.00,10397.74
+2025-02-23,Dividend Interest Credit,150.00,10547.74
+2025-02-24,Walmart Groceries,-78.00,10469.74
+2025-02-25,Dental Clinic Checkup,-200.00,10269.74
+2025-02-26,KFC Chicken Dinner,-18.00,10251.74
+2025-02-27,Cashback Refund Reimbursement,25.00,10276.74
+2025-02-28,Venmo Transfer,-100.00,10176.74
+2025-03-01,Salary Deposit,5000.00,15176.74
+2025-03-02,Zomato Food Order,-35.00,15141.74
+2025-03-03,Toll Highway Fee,-8.00,15133.74
+2025-03-04,Xbox Gaming Subscription,-14.99,15118.75
+2025-03-05,Physiotherapy Wellness,-75.00,15043.75
+2025-03-06,Flipkart Shopping,-180.00,14863.75
+2025-03-07,Grubhub Food Delivery,-42.00,14821.75
