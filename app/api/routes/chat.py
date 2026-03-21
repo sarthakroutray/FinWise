@@ -162,10 +162,11 @@ async def _stream_response(req: ChatRequest):
         # Quick routing check (heuristic first, then LLM if ambiguous)
         t_route = time.time()
         is_dilemma = heuristic_is_dilemma(req.message)
+        # Router classification
         routing = None
-        if not is_dilemma:
-            routing = await classify_message(_pro_client, req.message)
-            is_dilemma = routing.mode == "debate"
+        if not is_dilemma: # Only call LLM if heuristic didn't already classify as dilemma
+            routing = await classify_message(_flash_client_1, req.message)
+            is_dilemma = routing.mode == "debate" # Update is_dilemma based on LLM classification
         trace["stages"].append({"name": "routing", "ms": round((time.time() - t_route) * 1000), "mode": "debate" if is_dilemma else "normal"})
 
         if is_dilemma:

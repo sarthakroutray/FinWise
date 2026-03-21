@@ -27,3 +27,4 @@ joblib==1.4.2
 
 # Optional alternative Postgres driver for Neon (not required with pg8000)
 # psycopg2-binary==2.9.10
+groq>=1.1.0

@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     GEMINI_PRO_MODEL: str = "gemini-3.1-pro-preview"
     GEMINI_FLASH_MODEL: str = "gemini-3-flash"
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-2-preview"
+    GROQ_API_KEY: str = ""
     SCRATCHPAD_DIR: str = str(Path(__file__).resolve().parent.parent.parent / "data" / "scratchpads")
 
     class Config:

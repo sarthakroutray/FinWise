@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator
 
@@ -37,9 +38,21 @@ class ChatEvent:
 class GeminiClient:
     """Thin async wrapper around google-genai for one model/key pair."""
 
-    def __init__(self, api_key: str, model: str) -> None:
+    def __init__(self, api_keys: str | list[str], model: str) -> None:
         self.model = model
-        self._client = genai.Client(api_key=api_key)
+        
+        if isinstance(api_keys, str):
+            api_keys = [k.strip() for k in api_keys.split(",") if k.strip()]
+            
+        if not api_keys:
+            raise ValueError("No Gemini API keys provided.")
+            
+        self._clients = [genai.Client(api_key=k) for k in api_keys]
+
+    @property
+    def _client(self) -> genai.Client:
+        """Randomly select a client instance to load-balance API requests."""
+        return random.choice(self._clients)
 
     # ── streaming chat ──────────────────────────────────────────────────
 
