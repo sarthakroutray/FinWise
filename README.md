@@ -57,6 +57,19 @@ NEON_DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
 FIREBASE_CREDENTIALS_PATH=C:/path/to/firebase-service-account.json
 # OR
 # FIREBASE_CREDENTIALS_JSON={"type":"service_account",...}
+
+# Optional: Gemini AI Studio for RLM-powered deep queries
+GEMINI_API_KEY=<your-ai-studio-key>
+
+# RLM provider switch: gemini | openrouter
+RLM_PROVIDER=openrouter
+RLM_MODEL=openrouter/auto
+RLM_RECURSIVE_MODEL=openrouter/auto
+
+# Optional OpenRouter support (free-model routing)
+OPENROUTER_API_KEY=<your-openrouter-key>
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1/chat/completions
+OPENROUTER_FREE_MODELS=meta-llama/llama-3.3-8b-instruct:free,google/gemma-3-27b-it:free,qwen/qwen-2.5-7b-instruct:free
 ```
 
 4. Start API:

@@ -96,12 +96,14 @@ export async function analyzeFile(
 
 export async function queryRAG(
   question: string,
-  use_rlm: boolean = false
+  use_rlm: boolean = false,
+  rlm_provider?: string,
+  rlm_model?: string
 ): Promise<QueryResponse> {
   const res = await fetch(`${BASE}/query`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, use_rlm }),
+    body: JSON.stringify({ question, use_rlm, rlm_provider, rlm_model }),
   });
   if (!res.ok) {
     const text = await res.text();

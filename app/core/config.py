@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     FIREBASE_PROJECT_ID: str = ""
     FIREBASE_CREDENTIALS_PATH: str = ""
     FIREBASE_CREDENTIALS_JSON: str = ""
+    RLM_PROVIDER: str = "gemini"
+    GEMINI_API_KEY: str = ""
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1/chat/completions"
+    OPENROUTER_FREE_MODELS: str = ""
+    RLM_MODEL: str = "gemini-1.5-flash"
+    RLM_RECURSIVE_MODEL: str = "gemini-1.5-flash"
 
     class Config:
         env_file = ".env"

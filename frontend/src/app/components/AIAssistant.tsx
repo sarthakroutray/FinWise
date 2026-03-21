@@ -40,10 +40,25 @@ export function AIAssistant() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [rlmProvider, setRlmProvider] = useState<"openrouter" | "gemini">("openrouter");
+  const [rlmModel, setRlmModel] = useState("openrouter/auto");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { theme, accentColors } = useTheme();
   const isDark = theme === "dark";
   const ac = accentColors;
+
+  const modelOptions: Record<"openrouter" | "gemini", string[]> = {
+    openrouter: [
+      "openrouter/auto",
+      "meta-llama/llama-3.3-8b-instruct:free",
+      "google/gemma-3-27b-it:free",
+      "qwen/qwen-2.5-7b-instruct:free",
+    ],
+    gemini: [
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
+    ],
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -52,6 +67,13 @@ export function AIAssistant() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);
+
+  useEffect(() => {
+    const firstModel = modelOptions[rlmProvider][0];
+    if (firstModel && !modelOptions[rlmProvider].includes(rlmModel)) {
+      setRlmModel(firstModel);
+    }
+  }, [rlmProvider, rlmModel]);
 
   const handleSend = (text: string) => {
     if (!text.trim()) return;
@@ -66,7 +88,7 @@ export function AIAssistant() {
 
     setTimeout(async () => {
       try {
-        const response = await queryRAG(text, needsRLM);
+        const response = await queryRAG(text, needsRLM, rlmProvider, rlmModel);
         const aiResponse: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
@@ -243,6 +265,31 @@ export function AIAssistant() {
 
       {/* Input Area */}
       <div className={cn("p-4 border-t", isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200")}>
+        <div className="mb-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <select
+            value={rlmProvider}
+            onChange={(e) => setRlmProvider(e.target.value as "openrouter" | "gemini")}
+            className={cn(
+              "w-full border rounded-lg px-3 py-2 text-xs focus:outline-none",
+              isDark ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-700"
+            )}
+          >
+            <option value="openrouter">OpenRouter</option>
+            <option value="gemini">Gemini</option>
+          </select>
+          <select
+            value={rlmModel}
+            onChange={(e) => setRlmModel(e.target.value)}
+            className={cn(
+              "w-full border rounded-lg px-3 py-2 text-xs focus:outline-none",
+              isDark ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-700"
+            )}
+          >
+            {modelOptions[rlmProvider].map((modelName) => (
+              <option key={modelName} value={modelName}>{modelName}</option>
+            ))}
+          </select>
+        </div>
         <form 
           onSubmit={(e) => { e.preventDefault(); handleSend(input); }}
           className="relative flex items-center"

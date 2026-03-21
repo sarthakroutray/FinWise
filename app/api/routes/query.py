@@ -13,6 +13,8 @@ _rag_pipeline = RAGPipeline()
 class QueryRequest(BaseModel):
     question: str
     use_rlm: bool = False
+    rlm_provider: str | None = None
+    rlm_model: str | None = None
 
 
 class QueryResponse(BaseModel):
@@ -27,7 +29,11 @@ async def query(request: QueryRequest) -> QueryResponse:
     
     if request.use_rlm:
         # Use the powerful RLM for deep analysis and charts
-        result = await _rag_pipeline.query_rlm(request.question)
+        result = await _rag_pipeline.query_rlm(
+            request.question,
+            provider=request.rlm_provider,
+            model=request.rlm_model,
+        )
         
         if isinstance(result, dict) and result.get("type") == "chart":
             return QueryResponse(

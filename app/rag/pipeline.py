@@ -1,4 +1,4 @@
-from typing import List, Any
+from typing import List, Any, Optional
 
 import numpy as np
 import faiss
@@ -16,10 +16,14 @@ class RAGPipeline:
         self.documents: List[str] = []
         self.full_context: str = ""
         self._last_df: Any = None
-        
-        # Initialize RLM (Recursive Language Model)
-        from app.rlm import RLM
-        self.rlm = RLM(model="gpt-4o-mini")
+
+        # RLM is built lazily so provider/model can be changed per request.
+        self._rlm_cls = None
+        try:
+            from app.rlm import RLM
+            self._rlm_cls = RLM
+        except Exception:
+            self._rlm_cls = None
 
     def build_index(self, documents: List[str]) -> None:
         """Encode documents and add to FAISS flat L2 index."""
@@ -43,8 +47,37 @@ class RAGPipeline:
         # Clean representation for the LLM
         self.full_context = df.to_csv(index=False)
 
-    async def query_rlm(self, question: str) -> Any:
+    def _parse_free_models(self) -> List[str]:
+        return [m.strip() for m in config.OPENROUTER_FREE_MODELS.split(",") if m.strip()]
+
+    def _build_rlm(self, provider: Optional[str], model: Optional[str]) -> Any:
+        if self._rlm_cls is None:
+            return None
+
+        selected_provider = (provider or config.RLM_PROVIDER or "gemini").strip().lower()
+        selected_model = (model or config.RLM_MODEL).strip()
+
+        if selected_provider == "gemini" and not config.GEMINI_API_KEY:
+            return None
+        if selected_provider == "openrouter" and not config.OPENROUTER_API_KEY:
+            return None
+
+        return self._rlm_cls(
+            provider=selected_provider,
+            model=selected_model,
+            recursive_model=config.RLM_RECURSIVE_MODEL,
+            api_key=config.GEMINI_API_KEY,
+            openrouter_api_key=config.OPENROUTER_API_KEY,
+            openrouter_base_url=config.OPENROUTER_BASE_URL,
+            openrouter_free_models=self._parse_free_models(),
+        )
+
+    async def query_rlm(self, question: str, provider: Optional[str] = None, model: Optional[str] = None) -> Any:
         """Use RLM for complex queries + visualization."""
         if not self.full_context:
             return "No document context available."
-        return await self.rlm.acomplete(question, self.full_context)
+
+        rlm = self._build_rlm(provider=provider, model=model)
+        if rlm is None:
+            return "RLM is unavailable. Set RLM_PROVIDER and the matching API key (GEMINI_API_KEY or OPENROUTER_API_KEY) in backend .env."
+        return await rlm.acomplete(question, self.full_context)
