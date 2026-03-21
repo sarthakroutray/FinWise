@@ -134,3 +134,75 @@ The Vite dev server proxies `/api/*` to `http://localhost:8000/*`.
 - Backend `/documents` endpoints require a valid Firebase ID token.
 - Neon table is created automatically on first metadata operation.
 - OCR behavior supports environments without external Tesseract install by using `easyocr` first and `pytesseract` fallback when available.
+
+## Deployment Preflight (Vercel + Render + Neon)
+
+### 1) Backend on Render
+
+You can deploy with the included Render Blueprint file at `render.yaml` (repo root), or configure manually with the values below.
+
+- Root Directory: `backend`
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Health Check Path: `/health`
+
+Set these Render environment variables:
+
+```env
+APP_NAME=FinWise AI
+DEBUG=false
+
+# Neon (recommended primary DB for /documents)
+NEON_DATABASE_URL=postgresql+pg8000://<user>:<password>@<host>/<db>?sslmode=require
+
+# Optional local fallback
+DB_URL=sqlite:///./finwise.db
+
+# Allow your frontend origin(s)
+CORS_ORIGINS=https://<your-vercel-app>.vercel.app
+
+# Firebase Admin auth verification (use ONE)
+FIREBASE_CREDENTIALS_JSON={...service_account_json...}
+# OR
+# FIREBASE_CREDENTIALS_PATH=/opt/render/project/src/backend/.secrets/firebase-service-account.json
+FIREBASE_PROJECT_ID=<firebase-project-id>
+
+# Parser mode
+PDF_PARSER=auto
+
+# LLM provider
+RLM_PROVIDER=openrouter
+RLM_MODEL=openrouter/auto
+RLM_RECURSIVE_MODEL=openrouter/auto
+
+# OpenRouter
+OPENROUTER_API_KEY=<openrouter-api-key>
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1/chat/completions
+OPENROUTER_FREE_MODELS=meta-llama/llama-3.3-8b-instruct:free,google/gemma-3-27b-it:free,qwen/qwen-2.5-7b-instruct:free
+
+# Optional Gemini fallback keys
+GEMINI_API_KEY=
+GEMINI_PRO_API_KEY=
+GEMINI_FLASH_API_KEY_1=
+GEMINI_FLASH_API_KEY_2=
+```
+
+### 2) Frontend on Vercel
+
+Set these Vercel environment variables:
+
+```env
+VITE_API_BASE=https://<your-render-service>.onrender.com
+VITE_FIREBASE_API_KEY=<firebase-web-api-key>
+VITE_FIREBASE_AUTH_DOMAIN=<project-id>.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=<project-id>
+VITE_FIREBASE_STORAGE_BUCKET=<project-id>.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=<messaging-sender-id>
+VITE_FIREBASE_APP_ID=<firebase-app-id>
+```
+
+### 3) Secret Safety Checklist
+
+- Rotate any API keys/passwords that were ever committed or shared.
+- Keep `.env` out of source control for production values.
+- Store secrets only in Render/Vercel environment settings.

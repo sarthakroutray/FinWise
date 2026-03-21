@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: finwise-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.2
+      - key: APP_NAME
+        value: FinWise AI
+      - key: DEBUG
+        value: false
+      - key: PDF_PARSER
+        value: auto
+      - key: CORS_ORIGINS
+        sync: false
+      - key: NEON_DATABASE_URL
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CREDENTIALS_JSON
+        sync: false
+      - key: RLM_PROVIDER
+        value: openrouter
+      - key: RLM_MODEL
+        value: openrouter/auto
+      - key: RLM_RECURSIVE_MODEL
+        value: openrouter/auto
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_BASE_URL
+        value: https://openrouter.ai/api/v1/chat/completions
+      - key: OPENROUTER_FREE_MODELS
+        value: meta-llama/llama-3.3-8b-instruct:free,google/gemma-3-27b-it:free,qwen/qwen-2.5-7b-instruct:free
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_PRO_API_KEY
+        sync: false
+      - key: GEMINI_FLASH_API_KEY_1
+        sync: false
+      - key: GEMINI_FLASH_API_KEY_2
+        sync: false

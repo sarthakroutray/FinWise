@@ -45,3 +45,6 @@ htmlcov/
 .secrets/
 firebase-service-account.json
 *firebase-adminsdk*.json
+
+# Local temp artifacts
+.tmp_venv_freeze.txt
