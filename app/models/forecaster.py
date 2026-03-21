@@ -64,8 +64,14 @@ class LSTMForecaster:
     def load(self) -> None:
         """Load persisted LSTM model and scaler from disk."""
         if self._model_path.exists() and self._scaler_path.exists():
-            self.model = keras.models.load_model(self._model_path)
-            self.scaler = joblib.load(self._scaler_path)
+            try:
+                self.model = keras.models.load_model(self._model_path)
+                self.scaler = joblib.load(self._scaler_path)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Could not load LSTM model due to {e}. A new one will be trained.")
+                self.model = None
+
 
     def predict(self, series: pd.Series, horizon: int = 30) -> np.ndarray:
         """Iteratively forecast `horizon` days ahead. Returns inverse-transformed array."""

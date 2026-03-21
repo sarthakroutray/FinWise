@@ -6,15 +6,28 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import config
 from app.api.routes import analyze, query
-from app import services
+from app.models.anomaly import AnomalyDetector
+from app.models.forecaster import LSTMForecaster
+from app.rag.pipeline import RAGPipeline
+from app.api.routes.anomaly import router as anomaly_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Startup: load persisted models into shared singletons. Shutdown: no-op."""
-    services.anomaly_detector.load()
-    services.forecaster.load()
-    # RAGPipeline index is rebuilt per request — no persistent load needed
+    """Startup: load models if persisted. Shutdown: cleanup."""
+    # Load pre-trained models on startup (no-op if files don't exist yet)
+    detector = AnomalyDetector()
+    detector.load()
+    analyze._anomaly_detector = detector
+
+    forecaster = LSTMForecaster()
+    forecaster.load()
+    analyze._forecaster = forecaster
+
+    rag = RAGPipeline()
+    analyze._rag_pipeline = rag
+    query._rag_pipeline = rag
+
     yield
 
 
@@ -34,8 +47,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include routers
 app.include_router(analyze.router, tags=["Analysis"])
 app.include_router(query.router, tags=["Query"])
+app.include_router(anomaly_router)
 
 
 @app.get("/health")
