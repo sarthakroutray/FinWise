@@ -1,6 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Send, Sparkles, User, BrainCircuit, Bot, Loader2, BarChart, FileText, Trash2 } from "lucide-react";
-import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
+import { 
+  BarChart as RechartsBarChart, Bar, 
+  LineChart as RechartsLineChart, Line,
+  PieChart as RechartsPieChart, Pie,
+  XAxis, YAxis, ResponsiveContainer, Cell, Tooltip, Legend 
+} from "recharts";
 import { cn } from "../utils";
 import { useTheme } from "./ThemeProvider";
 import { queryRAG } from "../services/api";
@@ -11,7 +16,11 @@ interface Message {
   content: string;
   sources?: string[];
   suggestions?: string[];
-  chart?: boolean;
+  chartData?: {
+    type: "bar" | "line" | "pie" | "area";
+    title: string;
+    data: any[];
+  };
 }
 
 const initialMessages: Message[] = [
@@ -52,14 +61,18 @@ export function AIAssistant() {
     setInput("");
     setIsLoading(true);
 
+    // Detect if we should use RLM (for charts/complex analysis)
+    const needsRLM = /chart|plot|visualization|analyze|breakdown|predict|compare/i.test(text);
+
     setTimeout(async () => {
       try {
-        const response = await queryRAG(text);
+        const response = await queryRAG(text, needsRLM);
         const aiResponse: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
           content: response.answer,
           sources: response.sources.length > 0 ? response.sources : undefined,
+          chartData: response.chart,
         };
         setMessages(prev => [...prev, aiResponse]);
       } catch (err: any) {
@@ -141,41 +154,41 @@ export function AIAssistant() {
                   {msg.content.split('**').map((text, i) => i % 2 === 1 ? <strong key={i} className={msg.role === "user" ? "text-white font-semibold" : "font-semibold"} style={msg.role !== "user" ? { color: ac[400] } : undefined}>{text}</strong> : text)}
                 </div>
 
-                {msg.chart && (
-                  <div className={cn("p-4 border rounded-xl mt-2", isDark ? "bg-slate-800/50 border-slate-700" : "bg-slate-50 border-slate-200")}>
-                    <p className={cn("text-[10px] uppercase tracking-wider mb-3 font-medium", isDark ? "text-slate-500" : "text-slate-400")}>Spending Breakdown — Last 3 Months</p>
-                    <div className="h-36 w-full">
+                {msg.chartData && (
+                  <div className={cn("p-4 border rounded-xl mt-2 w-full h-[300px]", isDark ? "bg-slate-800/50 border-slate-700" : "bg-slate-50 border-slate-200")}>
+                    <p className={cn("text-[10px] uppercase tracking-wider mb-3 font-medium", isDark ? "text-slate-500" : "text-slate-400")}>{msg.chartData.title || 'AI Analysis'}</p>
+                    <div className="h-full w-full pb-8">
                       <ResponsiveContainer width="100%" height="100%">
-                        <RechartsBarChart data={[
-                          { name: "Starbucks", value: 420, over: true },
-                          { name: "UberEats", value: 310, over: true },
-                          { name: "Groceries", value: 250, over: false },
-                          { name: "Gas", value: 180, over: false },
-                          { name: "Netflix", value: 45, over: false },
-                        ]} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 10 }} />
-                          <YAxis axisLine={false} tickLine={false} tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 10 }} tickFormatter={(v) => `$${v}`} />
-                          <Tooltip
-                            contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#334155' : '#e2e8f0', borderRadius: '0.5rem', fontSize: 12 }}
-                            formatter={(value: number) => [`$${value}`, "Spent"]}
-                          />
-                          <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                            {[
-                              { name: "Starbucks", value: 420, over: true },
-                              { name: "UberEats", value: 310, over: true },
-                              { name: "Groceries", value: 250, over: false },
-                              { name: "Gas", value: 180, over: false },
-                              { name: "Netflix", value: 45, over: false },
-                            ].map((entry, i) => (
-                              <Cell key={`cell-${i}`} fill={entry.over ? "#f43f5e" : ac[500]} />
-                            ))}
-                          </Bar>
-                        </RechartsBarChart>
+                        {msg.chartData.type === 'line' ? (
+                          <RechartsLineChart data={msg.chartData.data}>
+                            <XAxis dataKey={Object.keys(msg.chartData.data[0] || {})[0]} axisLine={false} tickLine={false} tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 10 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 10 }} />
+                            <Tooltip contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#334155' : '#e2e8f0', borderRadius: '0.5rem', fontSize: 12 }} />
+                            <Line type="monotone" dataKey={Object.keys(msg.chartData.data[0] || {})[1] || 'value'} stroke={ac[500]} strokeWidth={2} dot={{ r: 4, fill: ac[500] }} activeDot={{ r: 6 }} />
+                          </RechartsLineChart>
+                        ) : msg.chartData.type === 'pie' ? (
+                          <RechartsPieChart>
+                            <Pie
+                              data={msg.chartData.data}
+                              dataKey={Object.keys(msg.chartData.data[0] || {})[1] || 'value'}
+                              nameKey={Object.keys(msg.chartData.data[0] || {})[0]}
+                              cx="50%" cy="50%" outerRadius={80} fill={ac[500]} label={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 10 }}
+                            >
+                              {msg.chartData.data.map((_, index) => (
+                                <Cell key={`cell-${index}`} fill={[ac[500], ac[400], ac[600], '#ec4899', '#f59e0b'][index % 5]} />
+                              ))}
+                            </Pie>
+                            <Tooltip contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#334155' : '#e2e8f0', borderRadius: '0.5rem', fontSize: 12 }} />
+                          </RechartsPieChart>
+                        ) : (
+                          <RechartsBarChart data={msg.chartData.data}>
+                            <XAxis dataKey={Object.keys(msg.chartData.data[0] || {})[0]} axisLine={false} tickLine={false} tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 10 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: isDark ? '#94a3b8' : '#64748b', fontSize: 10 }} />
+                            <Tooltip contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#334155' : '#e2e8f0', borderRadius: '0.5rem', fontSize: 12 }} />
+                            <Bar dataKey={Object.keys(msg.chartData.data[0] || {})[1] || 'value'} fill={ac[500]} radius={[4, 4, 0, 0]} />
+                          </RechartsBarChart>
+                        )}
                       </ResponsiveContainer>
-                    </div>
-                    <div className="flex items-center gap-4 mt-2 text-[10px]">
-                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-rose-500"></div><span className={isDark ? "text-slate-400" : "text-slate-500"}>Above Average</span></div>
-                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: ac[500] }}></div><span className={isDark ? "text-slate-400" : "text-slate-500"}>Normal</span></div>
                     </div>
                   </div>
                 )}

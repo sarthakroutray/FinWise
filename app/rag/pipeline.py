@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Any
 
 import numpy as np
 import faiss
@@ -11,16 +11,15 @@ class RAGPipeline:
     """Retrieval-Augmented Generation pipeline using FAISS + SentenceTransformer."""
 
     def __init__(self) -> None:
-        self._encoder: Optional[SentenceTransformer] = None
-        self.index: Optional[faiss.IndexFlatL2] = None
+        self.encoder = SentenceTransformer(config.EMBEDDING_MODEL)
+        self.index: faiss.IndexFlatL2 | None = None
         self.documents: List[str] = []
-
-    @property
-    def encoder(self) -> SentenceTransformer:
-        """Lazy-load the embedding model on first access."""
-        if self._encoder is None:
-            self._encoder = SentenceTransformer(config.EMBEDDING_MODEL)
-        return self._encoder
+        self.full_context: str = ""
+        self._last_df: Any = None
+        
+        # Initialize RLM (Recursive Language Model)
+        from app.rlm import RLM
+        self.rlm = RLM(model="gpt-4o-mini")
 
     def build_index(self, documents: List[str]) -> None:
         """Encode documents and add to FAISS flat L2 index."""
@@ -37,3 +36,15 @@ class RAGPipeline:
         q_emb = self.encoder.encode([question], convert_to_numpy=True).astype("float32")
         _, indices = self.index.search(q_emb, min(top_k, len(self.documents)))
         return [self.documents[i] for i in indices[0] if i < len(self.documents)]
+
+    def set_full_context(self, df: Any) -> None:
+        """Store a string representation of the full dataframe for RLM."""
+        self._last_df = df
+        # Clean representation for the LLM
+        self.full_context = df.to_csv(index=False)
+
+    async def query_rlm(self, question: str) -> Any:
+        """Use RLM for complex queries + visualization."""
+        if not self.full_context:
+            return "No document context available."
+        return await self.rlm.acomplete(question, self.full_context)
