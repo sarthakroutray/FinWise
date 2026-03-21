@@ -38,6 +38,7 @@ class TransactionRow(BaseModel):
     description: str
     amount: float
     balance: float | None
+    currency: str | None = None
     category: str
     extraction_confidence: str = "high"
 
@@ -166,6 +167,12 @@ async def analyze(
 
     # Build typed transaction list
     tx_df = anomaly_df[["date", "description", "amount", "balance"]].copy()
+    if "currency" in anomaly_df.columns:
+        tx_df["currency"] = anomaly_df["currency"].values
+    elif "currency" in featured_df.columns:
+        tx_df["currency"] = featured_df["currency"].values
+    else:
+        tx_df["currency"] = None
     if "category" in featured_df.columns:
         tx_df["category"] = featured_df["category"].values
     else:
@@ -177,6 +184,7 @@ async def analyze(
         tx_df["extraction_confidence"] = "high"
     tx_df["date"] = tx_df["date"].dt.strftime("%Y-%m-%d")
     tx_df["description"] = tx_df["description"].fillna("").astype(str)
+    tx_df["currency"] = tx_df["currency"].fillna("").astype(str).str.upper().replace({"": None})
     tx_df["category"] = tx_df["category"].fillna("Other").astype(str)
     tx_df["amount"] = tx_df["amount"].apply(_safe_float)
     tx_df["balance"] = tx_df["balance"].apply(_safe_optional_float)
@@ -193,7 +201,7 @@ async def analyze(
     confidence = round(min(rows_extracted / safe_total_blocks, 1.0), 4)
     transactions = [
         TransactionRow(**row)
-        for row in tx_df[["date", "description", "amount", "balance", "category", "extraction_confidence"]].to_dict(orient="records")
+        for row in tx_df[["date", "description", "amount", "balance", "currency", "category", "extraction_confidence"]].to_dict(orient="records")
     ]
 
     response = AnalyzeResponse(

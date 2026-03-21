@@ -17,6 +17,7 @@ export interface TransactionRow {
   description: string;
   amount: number;
   balance: number | null;
+  currency?: string | null;
   category: string;
 }
 

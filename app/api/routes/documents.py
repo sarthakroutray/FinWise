@@ -55,7 +55,7 @@ def add_document(payload: DocumentCreateRequest, user: AuthUser = Depends(get_cu
         )
     except Exception as exc:  # noqa: BLE001
         msg = str(exc)
-        if "configured" in msg.lower():
+        if "configured" in msg.lower() or "initialize neon database engine" in msg.lower():
             raise HTTPException(status_code=503, detail="Document storage is not configured") from exc
         if "json" in msg.lower() or "serialize" in msg.lower():
             raise HTTPException(status_code=422, detail="Invalid document metadata payload") from exc

@@ -42,9 +42,16 @@ DEBUG=true
 
 # Existing app settings
 DB_URL=sqlite:///./finwise.db
+PDF_PARSER=auto
+
+# Optional OpenDataLoader parser mode
+# - auto: try OpenDataLoader first, fallback to native parser
+# - opendataloader: force OpenDataLoader only
+# - native: use existing internal parser only
+# Requires Java 11+ when OpenDataLoader is used.
 
 # Neon Postgres for per-user documents metadata
-NEON_DATABASE_URL=postgresql+psycopg2://<user>:<password>@<host>/<db>?sslmode=require
+NEON_DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
 
 # Firebase Admin SDK for backend token verification
 FIREBASE_CREDENTIALS_PATH=C:/path/to/firebase-service-account.json

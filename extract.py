@@ -6,6 +6,7 @@ import io
 import json
 import logging
 import re
+import tempfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -15,6 +16,8 @@ import pandas as pd
 import pdfplumber
 from dateutil import parser as date_parser
 from PIL import Image
+
+from app.core.config import config
 
 LOGGER = logging.getLogger("bank_extractor")
 
@@ -91,6 +94,7 @@ class ParseContext:
     period_start: str | None = None
     period_end: str | None = None
     dayfirst_preference: bool | None = None
+    default_currency: str | None = None
 
 
 @dataclass(frozen=True)
@@ -338,6 +342,18 @@ class BankStatementExtractor:
 
     def _extract_from_pdf(self, pdf_path: Path, context: ParseContext) -> tuple[list[dict[str, Any]], int]:
         """Extract rows from PDF using table, regex, and heuristic text strategies."""
+        parser_mode = str(config.PDF_PARSER or "auto").strip().lower()
+        if parser_mode in {"auto", "opendataloader"}:
+            try:
+                odl_rows, odl_pages = self._extract_from_pdf_opendataloader(pdf_path, context)
+                if odl_rows:
+                    return odl_rows, odl_pages
+                self.warnings.append("OpenDataLoader returned no rows; falling back to native PDF parsing")
+            except Exception as exc:  # noqa: BLE001
+                if parser_mode == "opendataloader":
+                    raise
+                self.warnings.append(f"OpenDataLoader failed ({exc}); falling back to native PDF parsing")
+
         rows: list[dict[str, Any]] = []
         total_pages = 0
         full_text_chunks: list[str] = []
@@ -389,6 +405,133 @@ class BankStatementExtractor:
         context = self._extract_statement_metadata(all_text, context)
         enriched = [self._normalize_output_row(r, context) for r in rows]
         return enriched, total_pages
+
+    def _extract_from_pdf_opendataloader(self, pdf_path: Path, context: ParseContext) -> tuple[list[dict[str, Any]], int]:
+        """Extract transaction rows from OpenDataLoader markdown/json outputs."""
+        try:
+            import opendataloader_pdf
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError("opendataloader-pdf is not installed") from exc
+
+        with tempfile.TemporaryDirectory(prefix="odl_pdf_") as output_dir:
+            output_path = Path(output_dir)
+            opendataloader_pdf.convert(
+                input_path=[str(pdf_path)],
+                output_dir=str(output_path),
+                format="markdown,json",
+            )
+
+            markdown_files = list(output_path.rglob("*.md"))
+            if not markdown_files:
+                raise RuntimeError("OpenDataLoader produced no markdown output")
+
+            rows: list[dict[str, Any]] = []
+            for md_file in markdown_files:
+                md_text = md_file.read_text(encoding="utf-8", errors="ignore")
+                if not md_text.strip():
+                    continue
+                context = self._extract_statement_metadata(md_text, context)
+                table_rows = self._parse_markdown_tables(md_text, context)
+                if table_rows:
+                    rows.extend(table_rows)
+                else:
+                    rows.extend(self._parse_text_payload(md_text, context))
+
+            if not rows:
+                return [], max(self._infer_pages_from_odl_output(output_path), 1)
+
+            enriched = [self._normalize_output_row(r, context) for r in rows]
+            total_pages = max(self._infer_pages_from_odl_output(output_path), 1)
+            return enriched, total_pages
+
+    def _infer_pages_from_odl_output(self, output_path: Path) -> int:
+        """Best-effort page count extraction from OpenDataLoader JSON outputs."""
+        max_page = 0
+        for json_file in output_path.rglob("*.json"):
+            try:
+                data = json.loads(json_file.read_text(encoding="utf-8", errors="ignore"))
+            except Exception:
+                continue
+            max_page = max(max_page, self._max_page_number(data))
+        return max_page
+
+    def _max_page_number(self, node: Any) -> int:
+        """Recursively find max page number in heterogeneous JSON payloads."""
+        if isinstance(node, dict):
+            max_found = 0
+            for key, value in node.items():
+                if str(key).strip().lower() in {"page", "page_number", "page number"}:
+                    try:
+                        max_found = max(max_found, int(value))
+                    except Exception:
+                        pass
+                max_found = max(max_found, self._max_page_number(value))
+            return max_found
+        if isinstance(node, list):
+            max_found = 0
+            for item in node:
+                max_found = max(max_found, self._max_page_number(item))
+            return max_found
+        return 0
+
+    def _parse_markdown_tables(self, markdown: str, context: ParseContext) -> list[dict[str, Any]]:
+        """Parse markdown pipe tables into transaction rows when available."""
+        lines = [line.strip() for line in markdown.splitlines()]
+        blocks: list[list[str]] = []
+        current: list[str] = []
+
+        for line in lines:
+            if line.count("|") >= 2:
+                current.append(line)
+            else:
+                if current:
+                    blocks.append(current)
+                    current = []
+        if current:
+            blocks.append(current)
+
+        parsed_rows: list[dict[str, Any]] = []
+        for block in blocks:
+            matrix: list[list[str]] = []
+            for raw in block:
+                if set(raw.replace("|", "").replace("-", "").replace(":", "").strip()) == set():
+                    continue
+                cells = [c.strip() for c in raw.split("|")]
+                if cells and cells[0] == "":
+                    cells = cells[1:]
+                if cells and cells[-1] == "":
+                    cells = cells[:-1]
+                if not cells:
+                    continue
+                matrix.append(cells)
+
+            if len(matrix) < 2:
+                continue
+
+            header_map, header_idx = self._detect_header_map(matrix)
+            if header_map is None:
+                continue
+
+            sample_dates = [
+                (r[header_map["date"]] if len(r) > header_map["date"] else "")
+                for r in matrix[header_idx + 1 : header_idx + 31]
+            ]
+            prefer_dayfirst = context.dayfirst_preference
+            if prefer_dayfirst is None:
+                prefer_dayfirst = self._infer_dayfirst_preference(sample_dates)
+                if prefer_dayfirst is not None:
+                    context.dayfirst_preference = prefer_dayfirst
+
+            previous_date: str | None = None
+            for row in matrix[header_idx + 1 :]:
+                parsed = self._build_row_from_columns(row, header_map, context, prefer_dayfirst, previous_date)
+                if parsed is None:
+                    continue
+                parsed["extraction_confidence"] = "high"
+                parsed_rows.append(parsed)
+                previous_date = parsed["date"]
+
+        return parsed_rows
 
     def _parse_tables_from_page(self, page: pdfplumber.page.Page, context: ParseContext) -> list[dict[str, Any]]:
         """Parse transaction rows from detected table structures on a PDF page."""
@@ -445,6 +588,10 @@ class BankStatementExtractor:
             for idx, col in enumerate(normalized):
                 for key, words in candidates.items():
                     if key in mapping:
+                        continue
+                    if key == "amount" and "total" in col and "transaction" not in col:
+                        # Prevent footer/summary columns (e.g., "Total", "Total Amount")
+                        # from being treated as per-transaction amount columns.
                         continue
                     if any(w in col for w in words):
                         mapping[key] = idx
@@ -505,7 +652,7 @@ class BankStatementExtractor:
             balance_val, cur3 = self._parse_plain_number(row[header_map["balance"]])
         else:
             balance_val, cur3 = None, None
-        currency = currency or cur3
+        currency = currency or cur3 or context.default_currency
 
         reference_number = None
         if "reference_number" in header_map:
@@ -660,7 +807,7 @@ class BankStatementExtractor:
             "date": parsed_date,
             "description": description,
             "amount": amount,
-            "currency": currency,
+            "currency": currency or context.default_currency,
             "transaction_type": tx_type,
             "reference_number": self._extract_reference(reference_text),
             "balance_after": balance,
@@ -1157,7 +1304,7 @@ class BankStatementExtractor:
                     "date": date_val,
                     "description": description or "Unknown",
                     "amount": amount,
-                    "currency": currency,
+                    "currency": currency or context.default_currency,
                     "transaction_type": tx_type,
                     "reference_number": ref,
                     "balance_after": balance,
@@ -1174,6 +1321,8 @@ class BankStatementExtractor:
 
     def _extract_statement_metadata(self, text: str, context: ParseContext) -> ParseContext:
         """Extract statement-level metadata for enrichment fields."""
+        if not context.default_currency:
+            context.default_currency = self._infer_default_currency(text)
         if context.dayfirst_preference is None:
             inferred = self._infer_dayfirst_preference(text.splitlines())
             if inferred is not None:
@@ -1211,6 +1360,24 @@ class BankStatementExtractor:
                 if context.period_start and context.period_end:
                     break
         return context
+
+    def _infer_default_currency(self, text: str) -> str | None:
+        """Infer statement-level currency from full document text."""
+        upper = (text or "").upper()
+        codes = ["USD", "EUR", "GBP", "INR", "AUD", "CAD", "JPY", "CNY", "SGD", "HKD", "AED", "SAR", "CHF", "SEK", "NOK", "DKK", "NZD", "ZAR"]
+        for code in codes:
+            if re.search(rf"\b{code}\b", upper):
+                return code
+
+        if "$" in text:
+            return "USD"
+        if "\u20ac" in text:
+            return "EUR"
+        if "\u00a3" in text:
+            return "GBP"
+        if "\u20b9" in text:
+            return "INR"
+        return None
 
     def _parse_date(
         self,
@@ -1521,7 +1688,7 @@ class BankStatementExtractor:
     def _extract_currency(self, text: str) -> str | None:
         """Extract a 3-letter currency code or infer from symbol."""
         s = (text or "").upper()
-        for code in ("USD", "EUR", "GBP", "INR", "AUD", "CAD", "JPY"):
+        for code in ("USD", "EUR", "GBP", "INR", "AUD", "CAD", "JPY", "CNY", "SGD", "HKD", "AED", "SAR", "CHF", "SEK", "NOK", "DKK", "NZD", "ZAR"):
             if code in s:
                 return code
         if "$" in s:
@@ -1665,6 +1832,9 @@ class BankStatementExtractor:
                 normalized[numeric_key] = round(float(value), 2)
             except Exception:
                 normalized[numeric_key] = None
+
+        if not normalized.get("currency") and context.default_currency:
+            normalized["currency"] = context.default_currency
 
         if normalized["extraction_confidence"] not in {"high", "medium", "low"}:
             normalized["extraction_confidence"] = "low"

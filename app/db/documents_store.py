@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import math
+import ssl
 from datetime import datetime
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from typing import Any
 
 from sqlalchemy import create_engine, text
@@ -13,22 +15,56 @@ from app.core.config import config
 _engine: Engine | None = None
 
 
+def _normalize_neon_url(db_url: str) -> str:
+    """Normalize Neon/Postgres URL to a SQLAlchemy-compatible pg8000 URL."""
+    parts = urlsplit(db_url)
+    scheme = parts.scheme.lower()
+
+    def _clean_query(query: str) -> str:
+        # Remove psycopg-only params that pg8000 does not accept.
+        pairs = [(k, v) for (k, v) in parse_qsl(query, keep_blank_values=True) if k.lower() not in {"sslmode", "channel_binding"}]
+        return urlencode(pairs)
+
+    # Normalize SQLAlchemy driver URL to pg8000 to avoid psycopg2 dependency.
+    if scheme in {"postgresql+psycopg2", "postgres+psycopg2", "postgresql+psycopg", "postgres+psycopg"}:
+        return urlunsplit(("postgresql+pg8000", parts.netloc, parts.path, _clean_query(parts.query), parts.fragment))
+
+    # Already SQLAlchemy dialect+driver URL (non-psycopg variants).
+    if "+" in scheme:
+        if scheme == "postgresql+pg8000":
+            return urlunsplit((parts.scheme, parts.netloc, parts.path, _clean_query(parts.query), parts.fragment))
+        return db_url
+
+    # Raw postgres URLs from Neon console: postgresql:// or postgres://
+    if scheme in {"postgres", "postgresql"}:
+        return urlunsplit(("postgresql+pg8000", parts.netloc, parts.path, _clean_query(parts.query), parts.fragment))
+
+    return db_url
+
+
 def _get_engine() -> Engine:
     """Build and cache SQLAlchemy engine for documents metadata storage."""
     global _engine
     if _engine is None:
-        candidates = [u for u in [config.NEON_DATABASE_URL, config.DB_URL] if u]
-        if not candidates:
-            raise RuntimeError("Neither NEON_DATABASE_URL nor DB_URL is configured")
-        errors: list[str] = []
-        for db_url in candidates:
+        # If Neon is configured, always use Neon (do not silently fallback to SQLite).
+        if config.NEON_DATABASE_URL:
+            neon_url = _normalize_neon_url(config.NEON_DATABASE_URL)
             try:
-                _engine = create_engine(db_url, pool_pre_ping=True)
-                break
+                _engine = create_engine(
+                    neon_url,
+                    pool_pre_ping=True,
+                    connect_args={"ssl_context": ssl.create_default_context()},
+                )
             except Exception as exc:  # noqa: BLE001
-                errors.append(f"{db_url}: {exc}")
-        if _engine is None:
-            raise RuntimeError("Could not initialize any documents database engine. " + " | ".join(errors))
+                raise RuntimeError(
+                    "Failed to initialize Neon database engine from NEON_DATABASE_URL. "
+                    "Verify driver and URL format (recommended: postgresql://... or postgresql+pg8000://...). "
+                    f"Error: {exc}"
+                ) from exc
+        else:
+            if not config.DB_URL:
+                raise RuntimeError("Neither NEON_DATABASE_URL nor DB_URL is configured")
+            _engine = create_engine(config.DB_URL, pool_pre_ping=True)
     return _engine
 
 
@@ -132,7 +168,8 @@ def create_document(user_uid: str, filename: str, mime_type: str | None, metadat
         insert_stmt = text(
             """
             INSERT INTO user_documents (user_uid, filename, mime_type, metadata_json)
-            VALUES (:user_uid, :filename, :mime_type, CAST(:metadata_json AS JSONB));
+            VALUES (:user_uid, :filename, :mime_type, CAST(:metadata_json AS JSONB))
+            RETURNING id, user_uid, filename, mime_type, metadata_json, created_at;
             """
         )
 
@@ -145,20 +182,21 @@ def create_document(user_uid: str, filename: str, mime_type: str | None, metadat
     )
 
     with engine.begin() as conn:
-        result = conn.execute(
-            insert_stmt,
-            {
-                "user_uid": user_uid,
-                "filename": filename,
-                "mime_type": mime_type,
-                "metadata_json": metadata_json,
-            },
-        )
-        inserted_id = result.lastrowid
-        if inserted_id is None:
-            # Fallback path for dialects that do not set lastrowid.
-            inserted_id = conn.execute(text("SELECT MAX(id) AS id FROM user_documents")).scalar()
-        row = conn.execute(select_stmt, {"document_id": inserted_id}).mappings().first()
+        params = {
+            "user_uid": user_uid,
+            "filename": filename,
+            "mime_type": mime_type,
+            "metadata_json": metadata_json,
+        }
+        if engine.dialect.name == "sqlite":
+            result = conn.execute(insert_stmt, params)
+            inserted_id = result.lastrowid
+            if inserted_id is None:
+                # Fallback path for dialects that do not set lastrowid.
+                inserted_id = conn.execute(text("SELECT MAX(id) AS id FROM user_documents")).scalar()
+            row = conn.execute(select_stmt, {"document_id": inserted_id}).mappings().first()
+        else:
+            row = conn.execute(insert_stmt, params).mappings().first()
 
     if not row:
         raise RuntimeError("Failed to insert document metadata")
