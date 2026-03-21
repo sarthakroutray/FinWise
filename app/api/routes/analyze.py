@@ -33,8 +33,9 @@ class AnalyzeResponse(BaseModel):
     health_score: Dict[str, Any]
     recommendations: List[str]
     anomalies: List[Dict[str, Any]]
-    forecast: List[float]
+    forecast: List[Dict[str, Any]]
     category_summary: Dict[str, float]
+    transactions: List[Dict[str, Any]]
     extraction_meta: ExtractionMeta
 
 
@@ -129,12 +130,33 @@ async def analyze(file: UploadFile = File(...)) -> AnalyzeResponse:
     rows_extracted = len(raw_df)
     confidence = rows_extracted / total_blocks if total_blocks > 0 else 1.0
 
+    # Format forecast for frontend (List[Dict[str, Any]])
+    # We use a 30-day window starting from the last date in the dataframe
+    import datetime
+    last_date = featured_df["date"].max() if not featured_df.empty else datetime.date.today()
+    forecast_list = []
+    for i, val in enumerate(forecast):
+        target_date = last_date + datetime.timedelta(days=i+1)
+        forecast_list.append({
+            "date": target_date.strftime("%Y-%m-%d"),
+            "predicted_amount": float(val)
+        })
+
+    # Format transactions for frontend
+    transactions_list = []
+    if not raw_df.empty:
+        df_display = raw_df.copy()
+        if "date" in df_display.columns:
+            df_display["date"] = df_display["date"].dt.strftime("%Y-%m-%d")
+        transactions_list = df_display.to_dict(orient="records")
+
     return AnalyzeResponse(
         health_score=health,
         recommendations=recs,
         anomalies=anomalies_list,
-        forecast=forecast.tolist(),
+        forecast=forecast_list,
         category_summary=category_summary,
+        transactions=transactions_list,
         extraction_meta=ExtractionMeta(
             method=method,
             pages=pages,
