@@ -259,6 +259,7 @@ async def _run_normal(req: ChatRequest, session, rag_chunks: list[str], trace: d
                 event.data,
                 event.metadata.get("args", {}),
                 scratchpad=session.scratchpad,
+                financial_context=req.financial_context,
             )
 
             # If it's a chart, we yield chart and STOP. The visual covers the answer.

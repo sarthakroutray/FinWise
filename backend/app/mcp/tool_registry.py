@@ -8,6 +8,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable
 
+import pandas as pd
+
 from app.mcp import math_tools
 
 logger = logging.getLogger(__name__)
@@ -110,7 +112,13 @@ def get_tool_declarations() -> list[dict[str, Any]]:
     return _TOOL_DECLARATIONS
 
 
-def execute(name: str, params: dict[str, Any], *, scratchpad: Any = None) -> dict[str, Any]:
+def execute(
+    name: str,
+    params: dict[str, Any],
+    *,
+    scratchpad: Any = None,
+    financial_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Execute a named tool with the given parameters.
 
@@ -125,7 +133,29 @@ def execute(name: str, params: dict[str, Any], *, scratchpad: Any = None) -> dic
         if scratchpad is None:
             return {"error": "No scratchpad database available for this session"}
         sql = params.get("sql", "")
-        return scratchpad.execute_sql(sql)
+        result = scratchpad.execute_sql(sql)
+
+        # Self-heal: if transactions table is missing, hydrate from provided context and retry.
+        error_msg = str(result.get("error", "")).lower() if isinstance(result, dict) else ""
+        needs_tx = "transactions" in str(sql).lower()
+        missing_tx_table = "no such table" in error_msg and "transactions" in error_msg
+
+        if needs_tx and missing_tx_table and financial_context:
+            tx = financial_context.get("transactions") if isinstance(financial_context, dict) else None
+            if isinstance(tx, list) and tx:
+                try:
+                    scratchpad.load_transactions(pd.DataFrame(tx))
+                    retry = scratchpad.execute_sql(sql)
+                    if isinstance(retry, dict):
+                        retry.setdefault("_auto_hydrated", True)
+                    return retry
+                except Exception as exc:
+                    return {
+                        "error": f"Failed to hydrate transactions table: {exc}",
+                        "original_error": result,
+                    }
+
+        return result
 
     if name == "scratchpad_list_tables":
         if scratchpad is None:
