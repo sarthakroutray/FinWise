@@ -25,11 +25,30 @@ export function Insights() {
   const textMuted = isDark ? "text-slate-500" : "text-slate-400";
 
   const predictionData = useMemo(() => {
-    if (!finData?.forecast || finData.forecast.length === 0) return [];
-    return finData.forecast.slice(0, 6).map((pt) => ({
-      month: new Date(pt.date).toLocaleDateString('en-US', { month: 'short' }),
-      predicted: Math.round(pt.predicted_amount),
-    }));
+    if (!finData?.transactions || finData.transactions.length === 0) return [];
+
+    const actualByMonth = new Map<string, number>();
+    for (const tx of finData.transactions) {
+      const monthKey = new Date(tx.date).toISOString().slice(0, 7);
+      const spend = tx.amount < 0 ? Math.abs(tx.amount) : 0;
+      actualByMonth.set(monthKey, (actualByMonth.get(monthKey) || 0) + spend);
+    }
+
+    const forecastByMonth = new Map<string, number>();
+    for (const pt of finData.forecast || []) {
+      const monthKey = new Date(pt.date).toISOString().slice(0, 7);
+      forecastByMonth.set(monthKey, (forecastByMonth.get(monthKey) || 0) + Math.max(0, pt.predicted_amount));
+    }
+
+    const mergedKeys = Array.from(new Set([...actualByMonth.keys(), ...forecastByMonth.keys()])).sort();
+    return mergedKeys.slice(-8).map((monthKey) => {
+      const monthDate = new Date(`${monthKey}-01T00:00:00`);
+      return {
+        month: monthDate.toLocaleDateString("en-US", { month: "short" }),
+        actual: Math.round(actualByMonth.get(monthKey) || 0),
+        predicted: Math.round(forecastByMonth.get(monthKey) || 0),
+      };
+    });
   }, [finData]);
 
   const projectedTotal = useMemo(() => {
@@ -38,14 +57,89 @@ export function Insights() {
     return `${total >= 0 ? '+' : ''}$${Math.abs(Math.round(total)).toLocaleString()}`;
   }, [finData]);
 
+  const riskSummary = useMemo(() => {
+    const txCount = finData?.transactions?.length || 0;
+    const anomalyCount = finData?.anomalies?.length || 0;
+    const anomalyRate = txCount > 0 ? Math.round((anomalyCount / txCount) * 100) : 0;
+    const healthScore = finData?.health_score?.score ?? 0;
+
+    const topCategory = Object.entries(finData?.category_summary || {})
+      .map(([category, amount]) => ({ category, amount: Math.abs(amount) }))
+      .sort((a, b) => b.amount - a.amount)[0];
+
+    return {
+      txCount,
+      anomalyCount,
+      anomalyRate,
+      healthScore,
+      topCategory,
+      mostRecentAnomaly: finData?.anomalies?.[0],
+    };
+  }, [finData]);
+
   const recommendations = useMemo(() => {
-    if (!finData?.recommendations || finData.recommendations.length === 0) return [];
-    return finData.recommendations.map((rec, i) => ({
-      title: rec.split('.')[0] || rec.slice(0, 40),
-      desc: rec,
-      action: "Review",
-      priority: i === 0 ? "High" : "Medium",
-    }));
+    if (!finData?.recommendations || finData.recommendations.length === 0) {
+      const fallback: Array<{ title: string; desc: string; action: string; priority: "High" | "Medium" }> = [];
+
+      if (riskSummary.anomalyCount > 0) {
+        fallback.push({
+          title: "Review flagged transactions",
+          desc: `${riskSummary.anomalyCount} anomalies were detected. Validate suspicious items to reduce fraud risk.`,
+          action: "Open Risk",
+          priority: "High",
+        });
+      }
+
+      if (riskSummary.topCategory) {
+        fallback.push({
+          title: `Optimize ${riskSummary.topCategory.category} spending`,
+          desc: `${riskSummary.topCategory.category} is your largest spending category right now. Set a tighter budget threshold for better control.`,
+          action: "Set Budget",
+          priority: "Medium",
+        });
+      }
+
+      return fallback;
+    }
+
+    return finData.recommendations.map((rec) => {
+      const lowered = rec.toLowerCase();
+      const high = lowered.includes("risk") || lowered.includes("fraud") || lowered.includes("anomaly") || lowered.includes("urgent");
+      return {
+        title: rec.split(".")[0] || rec.slice(0, 50),
+        desc: rec,
+        action: high ? "Review" : "Apply",
+        priority: high ? "High" as const : "Medium" as const,
+      };
+    });
+  }, [finData, riskSummary.anomalyCount, riskSummary.topCategory]);
+
+  const behaviorCards = useMemo(() => {
+    const cards: Array<{ title: string; desc: string; tone: "risk" | "good" }> = [];
+
+    if (riskSummary.anomalyCount > 0 && riskSummary.mostRecentAnomaly) {
+      cards.push({
+        title: "Anomaly activity detected",
+        desc: `${riskSummary.anomalyCount} outlier transaction(s) flagged (${riskSummary.anomalyRate}% of activity). Most recent: ${riskSummary.mostRecentAnomaly.description}.`,
+        tone: "risk",
+      });
+    } else {
+      cards.push({
+        title: "No anomaly spike",
+        desc: "Recent transactions are within expected behavioral patterns based on the current Isolation Forest model output.",
+        tone: "good",
+      });
+    }
+
+    if (riskSummary.topCategory) {
+      cards.push({
+        title: `Top spend cluster: ${riskSummary.topCategory.category}`,
+        desc: `This category currently contributes the largest share of your outflow. Monitoring this bucket can improve your monthly stability score.`,
+        tone: riskSummary.healthScore >= 70 ? "good" : "risk",
+      });
+    }
+
+    return cards;
   }, [finData]);
 
   return (
@@ -108,8 +202,8 @@ export function Insights() {
                 <Line 
                   key="line-savings"
                   type="monotone" 
-                  dataKey="savings" 
-                  name="Actual Savings" 
+                  dataKey="actual" 
+                  name="Actual Spend" 
                   stroke="#10b981" 
                   strokeWidth={3}
                   dot={{ r: 5, fill: '#10b981', strokeWidth: 2, stroke: isDark ? '#0f172a' : '#fff' }}
@@ -129,32 +223,30 @@ export function Insights() {
           </h2>
           
           <div className="space-y-4">
-            <div className={cn("p-4 rounded-xl border flex gap-4", isDark ? "bg-slate-800/40 border-slate-700/50" : "bg-slate-50 border-slate-200")}>
-              <div className="w-10 h-10 rounded-full bg-rose-500/10 flex items-center justify-center shrink-0 border border-rose-500/20">
-                <AlertTriangle className="h-5 w-5 text-rose-400" />
+            {behaviorCards.map((card, i) => (
+              <div key={i} className={cn("p-4 rounded-xl border flex gap-4", isDark ? "bg-slate-800/40 border-slate-700/50" : "bg-slate-50 border-slate-200")}>
+                <div className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center shrink-0 border",
+                  card.tone === "risk"
+                    ? "bg-rose-500/10 border-rose-500/20"
+                    : "bg-emerald-500/10 border-emerald-500/20"
+                )}>
+                  {card.tone === "risk"
+                    ? <AlertTriangle className="h-5 w-5 text-rose-400" />
+                    : <ShieldCheck className="h-5 w-5 text-emerald-400" />}
+                </div>
+                <div>
+                  <h3 className={cn("text-sm font-semibold", textPrimary)}>{card.title}</h3>
+                  <p className={cn("text-xs mt-1 leading-relaxed", textSecondary)}>{card.desc}</p>
+                </div>
               </div>
-              <div>
-                <h3 className={cn("text-sm font-semibold", textPrimary)}>Impulsive Spending Detected</h3>
-                <p className={cn("text-xs mt-1 leading-relaxed", textSecondary)}>
-                  You have made 4 unplanned purchases above $50 in the "Electronics" category late at night. Our model flags this as an impulsive behavior pattern.
-                </p>
-                <button className="mt-3 text-xs font-medium text-rose-400 hover:text-rose-300 flex items-center gap-1 transition-colors">
-                  Review instances <TrendingDown className="h-3 w-3" />
-                </button>
-              </div>
-            </div>
+            ))}
 
-            <div className={cn("p-4 rounded-xl border flex gap-4", isDark ? "bg-slate-800/40 border-slate-700/50" : "bg-slate-50 border-slate-200")}>
-              <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20">
-                <ShieldCheck className="h-5 w-5 text-emerald-400" />
+            {behaviorCards.length === 0 && (
+              <div className={cn("p-4 rounded-xl border text-sm", isDark ? "bg-slate-800/40 border-slate-700/50 text-slate-400" : "bg-slate-50 border-slate-200 text-slate-500")}>
+                Upload transactions to generate behavioral insights.
               </div>
-              <div>
-                <h3 className={cn("text-sm font-semibold", textPrimary)}>Consistent Utility Payments</h3>
-                <p className={cn("text-xs mt-1 leading-relaxed", textSecondary)}>
-                  Your fixed expenses are highly consistent and well within the healthy 30% margin of your total income. Excellent stability.
-                </p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -189,6 +281,15 @@ export function Insights() {
                 </button>
               </li>
             ))}
+
+            {recommendations.length === 0 && (
+              <li className={cn(
+                "p-3 rounded-lg border text-sm",
+                isDark ? "bg-slate-800/60 border-slate-700/50 text-slate-400" : "bg-white/80 border-slate-200 text-slate-500"
+              )}>
+                No recommendations yet. Import or analyze transaction data to generate actionable guidance.
+              </li>
+            )}
           </ul>
         </div>
       </div>
