@@ -62,18 +62,73 @@ class GroqClient:
         
         formatted_messages = self._build_messages(messages, system_prompt)
         
+        # Convert Gemini tool declarations to Groq (OpenAI) style
+        groq_tools = None
+        if tools:
+            groq_tools = []
+            for t_group in tools:
+                if "function_declarations" in t_group:
+                    for td in t_group["function_declarations"]:
+                        # Copy and fix types for JSON Schema
+                        import copy
+                        params = copy.deepcopy(td.get("parameters", {}))
+                        if "type" in params and isinstance(params["type"], str):
+                            params["type"] = params["type"].lower()
+                        if "properties" in params:
+                            for prop_name, prop_val in params["properties"].items():
+                                if "type" in prop_val and isinstance(prop_val["type"], str):
+                                    prop_val["type"] = prop_val["type"].lower()
+                        
+                        groq_tools.append({
+                            "type": "function",
+                            "function": {
+                                "name": td["name"],
+                                "description": td.get("description", ""),
+                                "parameters": params
+                            }
+                        })
+        
+        kwargs = {
+            "model": self.model,
+            "messages": formatted_messages,
+            "temperature": temperature,
+            "stream": True,
+        }
+        if groq_tools:
+            kwargs["tools"] = groq_tools
+            kwargs["tool_choice"] = "auto"
+
         try:
-            stream = await self._client.chat.completions.create(
-                model=self.model,
-                messages=formatted_messages,
-                temperature=temperature,
-                stream=True,
-            )
-            async for chunk in stream:
-                if chunk.choices and chunk.choices[0].delta.content:
-                    yield ChatEvent(kind="token", data=chunk.choices[0].delta.content)
+            stream = await self._client.chat.completions.create(**kwargs)
             
-            yield ChatEvent(kind="done")
+            tool_calls_dict = {}
+            
+            async for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                if hasattr(delta, "tool_calls") and delta.tool_calls:
+                    for tc in delta.tool_calls:
+                        idx = tc.index
+                        if idx not in tool_calls_dict:
+                            tool_calls_dict[idx] = {"name": "", "arguments": ""}
+                        if tc.function.name:
+                            tool_calls_dict[idx]["name"] += tc.function.name
+                        if tc.function.arguments:
+                            tool_calls_dict[idx]["arguments"] += tc.function.arguments
+                elif getattr(delta, "content", None):
+                    yield ChatEvent(kind="token", data=delta.content)
+            
+            if tool_calls_dict:
+                for idx, tc in tool_calls_dict.items():
+                    name = tc["name"]
+                    try:
+                        args = json.loads(tc["arguments"])
+                    except Exception:
+                        args = {}
+                    yield ChatEvent(kind="tool_call", data=name, metadata={"args": args})
+            else:
+                yield ChatEvent(kind="done")
 
         except Exception as exc:
             logger.exception("Groq stream error")

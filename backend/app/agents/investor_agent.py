@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Union
 
 from app.agents.base import BaseAgent, AgentContext, AgentResponse
 from app.llm.gemini_client import GeminiClient, ChatEvent
+from app.llm.groq_client import GroqClient
 from app.llm.system_prompts import INVESTOR_AGENT_PROMPT, TOOL_USAGE_INSTRUCTIONS, SCRATCHPAD_INSTRUCTIONS
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class InvestorAgent(BaseAgent):
     name = "BullRun"
     persona = "investor"
 
-    def __init__(self, client: GeminiClient) -> None:
+    def __init__(self, client: Union[GeminiClient, GroqClient]) -> None:
         self._client = client
 
     def _build_prompt(self, context: AgentContext) -> str:

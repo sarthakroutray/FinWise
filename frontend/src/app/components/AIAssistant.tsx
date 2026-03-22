@@ -6,7 +6,7 @@ import { streamChat } from "../services/api";
 import { useChatStore, type ChartConfig, type DebugTrace } from "../store/useChatStore";
 import type { ChatMessage } from "../store/useChatStore";
 import { DynamicChart } from "./chat/DynamicChart";
-import { DebateView } from "./chat/DebateView";
+import { DebateView, cleanText } from "./chat/DebateView";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { DebugPanel } from "./chat/DebugPanel";
 
@@ -38,6 +38,7 @@ export function AIAssistant() {
     appendVerdictText,
     endDebate,
     setAgentConfidence,
+    clearDebate,
   } = useChatStore();
 
   const scrollToBottom = useCallback(() => {
@@ -53,6 +54,9 @@ export function AIAssistant() {
       if (!text.trim() || isLoading) return;
       setInput("");
       setLoading(true);
+      
+      // Clear any previous debate pane when user asks a new question
+      clearDebate();
 
       // Add user message
       addMessage({
@@ -88,9 +92,7 @@ export function AIAssistant() {
               break;
 
             case "tool_result":
-              if (data.component_type === "dynamic_chart") {
-                addChart(data as ChartConfig);
-              }
+              // Backend yields a separate "chart" event for dynamic_chart, so we ignore it here
               break;
 
             case "debate_start":
@@ -172,7 +174,7 @@ export function AIAssistant() {
 
       cancelRef.current = cancel;
     },
-    [isLoading, sessionId, setLoading, addMessage, updateLastAssistant, finalizeLastAssistant, addChart, startDebate, setDebatePhase, appendSaverText, appendInvestorText, appendVerdictText, endDebate, setDebugTrace, setAgentConfidence],
+    [isLoading, sessionId, setLoading, addMessage, updateLastAssistant, finalizeLastAssistant, addChart, startDebate, setDebatePhase, appendSaverText, appendInvestorText, appendVerdictText, endDebate, setDebugTrace, setAgentConfidence, clearDebate],
   );
 
 
@@ -287,7 +289,7 @@ export function AIAssistant() {
                         )}
                         style={msg.role === "user" ? { backgroundColor: ac[600] } : undefined}
                       >
-                        <MarkdownRenderer content={msg.content} />
+                        <MarkdownRenderer content={cleanText(msg.content)} />
                         {msg.isStreaming && (
                           <span
                             className="inline-block w-1.5 h-4 ml-0.5 align-text-bottom rounded-sm animate-pulse"

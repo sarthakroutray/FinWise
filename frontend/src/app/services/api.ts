@@ -76,7 +76,7 @@ export interface DocumentCreatePayload {
 
 // ─── API functions ────────────────────────────────────────────────────────
 
-const BASE = import.meta.env.VITE_API_BASE || "/api";
+const BASE = "https://mayank-96615--finwise-backend-fastapi-app.modal.run";
 
 export async function analyzeFile(
   file: File,
@@ -90,6 +90,17 @@ export async function analyzeFile(
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Analyze failed (${res.status}): ${text}`);
+  }
+  return res.json();
+}
+
+export async function analyzeTestDataset(
+  userId: string = "default"
+): Promise<AnalyzeResponse> {
+  const res = await fetch(`${BASE}/analyze/test`, { method: "POST" });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Analyze Test Dataset failed (${res.status}): ${text}`);
   }
   return res.json();
 }

@@ -132,6 +132,7 @@ export function Dashboard() {
   const [dropZoneHighlight, setDropZoneHighlight] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const dragCounterRef = useRef(0);
+  const { loadTestDataset } = useFinData();
 
   // Derive chart data from real backend response
   const healthScore = finData?.health_score?.score ?? 0;
@@ -445,6 +446,22 @@ export function Dashboard() {
                         </div>
                       ))}
                     </div>
+                    <button 
+                      onClick={() => {
+                        setImportStep("importing");
+                        loadTestDataset().then(() => {
+                           setImportStep("done");
+                        }).catch(() => {
+                           setImportStep("select");
+                        });
+                      }} 
+                      className={cn(
+                        "mt-2 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium border transition-colors",
+                        isDark ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20" : "bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100"
+                      )}
+                    >
+                      <Sparkles className="h-4 w-4" /> Load USA PayPal Test Dataset
+                    </button>
                   </div>
                 )}
 

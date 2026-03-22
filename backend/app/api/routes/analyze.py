@@ -120,3 +120,19 @@ async def analyze(file: UploadFile = File(...)) -> AnalyzeResponse:
             confidence=round(min(confidence, 1.0), 4),
         ),
     )
+
+@router.post("/analyze/test", response_model=AnalyzeResponse)
+async def analyze_test() -> AnalyzeResponse:
+    """Convenience endpoint to load the USA PayPal Account Statement test dataset directly."""
+    import os
+    import io
+    from fastapi import HTTPException
+    
+    file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../data/usa_paypal_statement.pdf"))
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Test dataset not found on backend.")
+        
+    with open(file_path, "rb") as f:
+        file_obj = io.BytesIO(f.read())
+        upload_file = UploadFile(filename="usa_paypal_statement.pdf", file=file_obj)
+        return await analyze(upload_file)

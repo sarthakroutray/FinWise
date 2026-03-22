@@ -31,19 +31,16 @@ class Settings(BaseSettings):
     RLM_MODEL: str = "gemini-1.5-flash"
     RLM_RECURSIVE_MODEL: str = "gemini-1.5-flash"
 
-    # Gemini AI
-    GEMINI_PRO_API_KEY: str = ""
-    GEMINI_FLASH_API_KEY_1: str = ""
-    GEMINI_FLASH_API_KEY_2: str = ""
-    GEMINI_PRO_MODEL: str = "gemini-3.1-pro-preview"
-    GEMINI_FLASH_MODEL: str = "gemini-3-flash"
+    # Gemini AI (for Embeddings)
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-2-preview"
     GROQ_API_KEY: str = ""
+    GROQ_DEFAULT_MODEL: str = "llama-3.3-70b-versatile"
     SCRATCHPAD_DIR: str = str(Path(__file__).resolve().parent.parent.parent / "data" / "scratchpads")
 
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
 config = Settings()
