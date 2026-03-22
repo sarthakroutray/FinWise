@@ -19,6 +19,8 @@ import time
 import uuid
 from typing import Any
 
+import pandas as pd
+
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -46,6 +48,7 @@ from app.agents.router import (
     should_trigger_debate,
     heuristic_is_dilemma,
 )
+from app.llm.rag_index import normalize_columns, dataframe_to_chunks
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -138,22 +141,41 @@ async def _stream_response(req: ChatRequest):
         session = _session_mgr.get_or_create(req.session_id)
         session.add_message("user", req.message)
 
+        # Convert request financial context into a dataframe (if provided)
+        req_df: pd.DataFrame | None = None
+        if req.financial_context and isinstance(req.financial_context, dict):
+            tx = req.financial_context.get("transactions")
+            if isinstance(tx, list) and tx:
+                try:
+                    req_df = pd.DataFrame(tx)
+                except Exception as e:
+                    logger.warning("Failed to parse request financial_context transactions: %s", e)
+
         # Ensure scratchpad exists
         if session.scratchpad is None:
             session.scratchpad = ScratchpadDB(req.session_id)
-            
-            # Dynamically pull the transaction dataframe that was populated during POST /analyze
+
+        # Ensure transactions are loaded into the scratchpad for SQL tool calls.
+        # This is re-checked every request because a session may start before uploads occur.
+        try:
+            tables = set(session.scratchpad.list_tables())
+            has_tx_table = "transactions" in tables
+        except Exception:
+            has_tx_table = False
+
+        if not has_tx_table:
             from app.services import rag_pipeline
-            if getattr(rag_pipeline, "_last_df", None) is not None:
+
+            df_source = req_df if req_df is not None else getattr(rag_pipeline, "_last_df", None)
+            if df_source is not None:
                 try:
-                    df = rag_pipeline._last_df
-                    session.scratchpad.load_transactions(df)
-                    
-                    # ALSO build the chatbot's separate LLMRagIndex with embeddings
+                    session.scratchpad.load_transactions(df_source)
+
+                    # Build LLM embedding index if needed
                     if _rag_index and not _rag_index.is_ready:
-                        await _rag_index.build_from_dataframe(df)
+                        await _rag_index.build_from_dataframe(df_source)
                 except Exception as e:
-                    logger.error("Failed to inject uploaded transactions into chat: %s", e)
+                    logger.error("Failed to inject transactions into chat scratchpad: %s", e)
 
         # RAG retrieval
         rag_chunks: list[str] = []
@@ -162,6 +184,15 @@ async def _stream_response(req: ChatRequest):
             rag_chunks = await _rag_index.query(req.message, top_k=5)
             trace["stages"].append({"name": "rag_retrieval", "ms": round((time.time() - t_rag) * 1000), "chunks": len(rag_chunks)})
             session.set_rag_chunks(rag_chunks)
+        elif req_df is not None and not req_df.empty:
+            # Deterministic fallback when embedding index is not ready on this instance.
+            try:
+                fallback_chunks = dataframe_to_chunks(normalize_columns(req_df))
+                rag_chunks = fallback_chunks[:5]
+                trace["stages"].append({"name": "rag_fallback", "chunks": len(rag_chunks)})
+                session.set_rag_chunks(rag_chunks)
+            except Exception as e:
+                logger.warning("Failed fallback RAG chunk generation: %s", e)
 
         # Quick routing check (heuristic first, then LLM if ambiguous)
         t_route = time.time()

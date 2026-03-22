@@ -5,6 +5,7 @@ import { useTheme } from "./ThemeProvider";
 import { streamChat } from "../services/api";
 import { useChatStore, type ChartConfig, type DebugTrace } from "../store/useChatStore";
 import type { ChatMessage } from "../store/useChatStore";
+import { useFinData } from "../store/useFinData";
 import { DynamicChart } from "./chat/DynamicChart";
 import { DebateView, cleanText } from "./chat/DebateView";
 import { MarkdownRenderer } from "./MarkdownRenderer";
@@ -15,6 +16,7 @@ export function AIAssistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<(() => void) | null>(null);
   const { theme, accentColors: ac } = useTheme();
+  const { data: finData } = useFinData();
   const isDark = theme === "dark";
 
   const {
@@ -74,7 +76,18 @@ export function AIAssistant() {
       });
 
       const cancel = streamChat(
-        { message: text, session_id: sessionId },
+        {
+          message: text,
+          session_id: sessionId,
+          financial_context: finData
+            ? {
+                transactions: finData.transactions,
+                category_summary: finData.category_summary,
+                anomalies: finData.anomalies,
+                health_score: finData.health_score,
+              }
+            : undefined,
+        },
         (event, data) => {
           switch (event) {
             case "token":
@@ -174,7 +187,7 @@ export function AIAssistant() {
 
       cancelRef.current = cancel;
     },
-    [isLoading, sessionId, setLoading, addMessage, updateLastAssistant, finalizeLastAssistant, addChart, startDebate, setDebatePhase, appendSaverText, appendInvestorText, appendVerdictText, endDebate, setDebugTrace, setAgentConfidence, clearDebate],
+    [isLoading, sessionId, finData, setLoading, addMessage, updateLastAssistant, finalizeLastAssistant, addChart, startDebate, setDebatePhase, appendSaverText, appendInvestorText, appendVerdictText, endDebate, setDebugTrace, setAgentConfidence, clearDebate],
   );
 
 
