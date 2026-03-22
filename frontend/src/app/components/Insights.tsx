@@ -49,7 +49,7 @@ export function Insights() {
   }, [finData]);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
       <div>
         <h1 className={cn("text-2xl font-bold flex items-center gap-2", isDark ? "text-slate-100" : "text-slate-900")}>
           <BrainCircuit className="h-6 w-6" style={{ color: ac[400] }} />
@@ -58,7 +58,7 @@ export function Insights() {
         <p className={cn("text-sm mt-1", textSecondary)}>Deep analysis powered by Machine Learning and AI.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
         {/* ML Prediction Card */}
         <div className={cn("border rounded-2xl p-6 shadow-xl col-span-1 md:col-span-2 relative overflow-hidden", cardBg)}>
           <div className="absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" style={{ backgroundColor: `rgba(${ac.rgb},0.05)` }}></div>
@@ -80,7 +80,8 @@ export function Insights() {
             </div>
           </div>
 
-          <div className="h-[300px] w-full relative z-10">
+          <div className="w-full relative z-10 overflow-x-auto">
+            <div className="h-[300px] min-w-[520px] sm:min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={predictionData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                 <CartesianGrid key="grid" strokeDasharray="3 3" vertical={false} stroke={isDark ? "#334155" : "#e2e8f0"} opacity={0.4} />
@@ -116,6 +117,7 @@ export function Insights() {
                 />
               </LineChart>
             </ResponsiveContainer>
+            </div>
           </div>
         </div>
 

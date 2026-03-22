@@ -135,7 +135,7 @@ export function Documents() {
   }, [finData]);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-5 sm:space-y-6">
       <div>
         <h1 className={cn("text-2xl font-bold", isDark ? "text-slate-100" : "text-slate-900")}>Documents & Uploads</h1>
         <p className={cn("text-sm mt-1", textSecondary)}>
@@ -153,7 +153,7 @@ export function Documents() {
       )}
 
       {!user ? (
-        <div className={cn("border rounded-2xl p-6 space-y-4", cardBg)}>
+        <div className={cn("border rounded-2xl p-4 sm:p-6 space-y-4", cardBg)}>
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5" style={{ color: ac[500] }} />
             <h2 className={cn("text-lg font-semibold", textPrimary)}>Sign in to manage your documents</h2>
@@ -207,7 +207,7 @@ export function Documents() {
         </div>
       ) : (
         <>
-          <div className={cn("border rounded-2xl p-6 space-y-4", cardBg)}>
+          <div className={cn("border rounded-2xl p-4 sm:p-6 space-y-4", cardBg)}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <FileUp className="h-5 w-5" style={{ color: ac[500] }} />
@@ -228,8 +228,8 @@ export function Documents() {
             <p className={cn("text-sm", textSecondary)}>{summary}</p>
           </div>
 
-          <div className={cn("border rounded-2xl p-6", cardBg)}>
-            <div className="flex items-center justify-between mb-4">
+          <div className={cn("border rounded-2xl p-4 sm:p-6", cardBg)}>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
               <div className="flex items-center gap-2">
                 <FolderOpen className="h-5 w-5" style={{ color: ac[500] }} />
                 <h2 className={cn("text-lg font-semibold", textPrimary)}>Stored Metadata</h2>

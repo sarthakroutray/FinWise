@@ -287,7 +287,7 @@ export function Dashboard() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto relative">
+    <div className="space-y-5 sm:space-y-6 max-w-7xl mx-auto relative">
       {/* Full-page drag overlay */}
       <AnimatePresence>
         {isDraggingOver && !showImportModal && (
@@ -336,15 +336,15 @@ export function Dashboard() {
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <h1 className={cn("text-2xl font-bold", textPrimary)}>{getGreeting()}, John</h1>
           <p className={cn("text-sm mt-1", textSecondary)}>Here's your AI-powered financial snapshot.</p>
         </div>
-        <div className={cn("flex items-center gap-2 rounded-lg p-1 border", isDark ? "bg-slate-800/50 border-slate-700/50" : "bg-slate-100 border-slate-200")}>
+        <div className={cn("grid grid-cols-4 w-full sm:w-auto items-center gap-1.5 rounded-lg p-1 border", isDark ? "bg-slate-800/50 border-slate-700/50" : "bg-slate-100 border-slate-200")}>
           {['1M', '3M', '6M', 'YTD'].map(range => (
             <button key={range} onClick={() => setActiveRange(range)} className={cn(
-              "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+              "px-2 sm:px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
               range !== activeRange && (isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-800")
             )}
             style={range === activeRange ? { backgroundColor: `rgba(${ac.rgb},0.2)`, color: ac[400] } : undefined}
@@ -381,7 +381,7 @@ export function Dashboard() {
               initial={{ scale: 0.95, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              className={cn("w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden", isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200")}
+              className={cn("w-full max-w-lg max-h-[88dvh] rounded-2xl border shadow-2xl overflow-hidden", isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200")}
             >
               <div className={cn("flex items-center justify-between px-6 py-4 border-b", isDark ? "border-slate-800" : "border-slate-100")}>
                 <div className="flex items-center gap-3">
@@ -398,7 +398,7 @@ export function Dashboard() {
                 </button>
               </div>
 
-              <div className="px-6 py-5">
+              <div className="px-4 sm:px-6 py-5 overflow-y-auto max-h-[calc(88dvh-4.5rem)]">
                 {importStep === "select" && (
                   <div className="space-y-4">
                     <label
@@ -433,7 +433,7 @@ export function Dashboard() {
                       <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                       <span>PDF imports use OCR extraction. For best results, ensure your bank statement is clearly formatted.</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {[
                         { icon: FileSpreadsheet, label: "CSV", desc: "Comma-separated" },
                         { icon: FileSpreadsheet, label: "Excel", desc: ".xlsx / .xls" },
@@ -603,7 +603,7 @@ export function Dashboard() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
         {/* Main Chart */}
         <GlowCard
           className={cn("lg:col-span-2 border rounded-2xl p-5 shadow-lg flex flex-col cursor-default", cardBg)}
@@ -612,7 +612,7 @@ export function Dashboard() {
           motionProps={{ ...stagger(6), whileHover: { y: -3, transition: { duration: 0.25 } } }}
         >
           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl" style={{ boxShadow: isDark ? "inset 0 1px 0 0 rgba(99,102,241,0.1)" : "inset 0 1px 0 0 rgba(99,102,241,0.08)" }} />
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <div>
               <h3 className={cn("text-base font-semibold flex items-center gap-2", isDark ? "text-slate-200" : "text-slate-800")}>
                 <BrainCircuit className="h-4 w-4" style={{ color: ac[400] }} />
@@ -620,13 +620,14 @@ export function Dashboard() {
               </h3>
               <p className={cn("text-xs mt-1", textMuted)}>Actual vs Predicted spending for the next 2 months</p>
             </div>
-            <div className="flex items-center gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-3 text-xs">
               <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: ac[500] }}></div><span className={textSecondary}>Actual</span></div>
               <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full border border-dashed" style={{ borderColor: ac[500] }}></div><span className={textSecondary}>Predicted</span></div>
             </div>
           </div>
-          <div className="h-72 w-full mt-auto">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="w-full mt-auto overflow-x-auto">
+            <div className="h-72 min-w-[520px] sm:min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={spendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs key="defs">
                   <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
@@ -650,7 +651,8 @@ export function Dashboard() {
                 <Area key="area-actual" type="monotone" dataKey="actual" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorActual)" />
                 <Area key="area-predicted" type="monotone" dataKey="predicted" stroke="#8b5cf6" strokeWidth={2} strokeDasharray="5 5" fillOpacity={1} fill="url(#colorPredicted)" />
               </AreaChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
+            </div>
           </div>
         </GlowCard>
 
@@ -696,12 +698,12 @@ export function Dashboard() {
               <span className={cn("font-bold text-lg", textPrimary)}>{formatMoney(categoryData.reduce((sum, c) => sum + c.value, 0), currencyCode)}</span>
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
             {categoryData.map(c => (
               <div key={c.name} className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: c.color }}></div>
-                  <span className={cn("truncate max-w-[60px]", isDark ? "text-slate-300" : "text-slate-600")}>{c.name}</span>
+                  <span className={cn("truncate max-w-[120px]", isDark ? "text-slate-300" : "text-slate-600")}>{c.name}</span>
                 </div>
                 <span className={cn("font-medium", textSecondary)}>{formatMoney(c.value, currencyCode)}</span>
               </div>
@@ -755,7 +757,7 @@ export function Dashboard() {
       </GlowCard>
 
       {/* Bottom Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
         {/* Fraud / Anomalies */}
         <GlowCard
           className={cn("border rounded-2xl p-5 shadow-lg cursor-default", isDark ? "bg-slate-900 border-rose-900/30" : "bg-white border-rose-200")}
@@ -763,7 +765,7 @@ export function Dashboard() {
           glowSize={300}
           motionProps={{ ...stagger(9), whileHover: { y: -3, transition: { duration: 0.25 } } }}
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-start justify-between gap-2 mb-4">
             <h3 className={cn("text-base font-semibold flex items-center gap-2", isDark ? "text-slate-200" : "text-slate-800")}>
               <ShieldAlert className="h-4 w-4 text-rose-500" />
               Risk & Fraud Detection
@@ -834,7 +836,7 @@ export function Dashboard() {
             <button className="text-xs hover:opacity-80 transition-opacity" style={{ color: ac[400] }}>View All</button>
           </div>
           
-          <div className="space-y-0.5 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+          <div className="space-y-0.5 flex-1 overflow-y-auto pr-1 sm:pr-2 custom-scrollbar">
             {recentTransactions.map(t => (
               <motion.div
                 key={t.id}
@@ -938,7 +940,7 @@ function ImportBanner({ isDark, ac, expanded, onToggle, onImportClick, textSecon
 
       {/* Header row - always visible */}
       <div
-        className="relative z-10 flex items-center gap-4 px-5 py-4 cursor-pointer"
+        className="relative z-10 flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 cursor-pointer"
         onClick={(e) => { e.stopPropagation(); onToggle(); }}
       >
         <div className="p-2.5 rounded-xl shrink-0" style={{ backgroundColor: `rgba(${ac.rgb},0.1)`, border: `1px solid rgba(${ac.rgb},0.2)` }}>
@@ -990,11 +992,11 @@ function ImportBanner({ isDark, ac, expanded, onToggle, onImportClick, textSecon
             transition={{ duration: 0.25, ease: "easeInOut" }}
             className="overflow-hidden relative z-10"
           >
-            <div className={cn("px-5 pb-5 pt-0 border-t", isDark ? "border-slate-800/50" : "border-slate-100")}>
+            <div className={cn("px-4 sm:px-5 pb-5 pt-0 border-t", isDark ? "border-slate-800/50" : "border-slate-100")}>
               <p className={cn("text-sm mt-4 mb-4", textSecondary)}>
                 Upload your bank statements for AI-powered anomaly detection via Isolation Forest. Drag & drop anywhere on the page, or click below.
               </p>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <button
                   onClick={(e) => { e.stopPropagation(); onImportClick(); }}
                   className="px-4 py-2 rounded-lg text-xs font-medium text-white transition-colors"
@@ -1004,7 +1006,7 @@ function ImportBanner({ isDark, ac, expanded, onToggle, onImportClick, textSecon
                 >
                   Import Files
                 </button>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {[
                     { icon: FileSpreadsheet, label: "CSV" },
                     { icon: FileSpreadsheet, label: "Excel" },

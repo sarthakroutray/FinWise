@@ -182,28 +182,28 @@ export function AIAssistant() {
     <>
       <div
         className={cn(
-          "flex flex-col h-[calc(100vh-8rem)] max-w-4xl mx-auto border rounded-2xl shadow-xl overflow-hidden relative",
+          "flex flex-col h-[calc(100dvh-7.5rem)] sm:h-[calc(100dvh-8rem)] max-w-4xl mx-auto border rounded-2xl shadow-xl overflow-hidden relative",
           isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200",
         )}
       >
         {/* Header */}
         <div
           className={cn(
-            "flex items-center justify-between gap-4 p-4 border-b backdrop-blur-md sticky top-0 z-10",
+            "flex items-start sm:items-center justify-between gap-3 p-3 sm:p-4 border-b backdrop-blur-md sticky top-0 z-10",
             isDark ? "bg-slate-900/80 border-slate-800" : "bg-white/80 border-slate-200",
           )}
         >
-          <div className="flex items-center gap-4">
+          <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
             <div
-              className="w-10 h-10 rounded-full flex items-center justify-center"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0"
               style={{ backgroundColor: `rgba(${ac.rgb},0.2)`, border: `1px solid rgba(${ac.rgb},0.3)` }}
             >
               <Sparkles className="h-5 w-5" style={{ color: ac[400] }} />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2
                 className={cn(
-                  "text-lg font-semibold flex items-center gap-2",
+                  "text-base sm:text-lg font-semibold flex flex-wrap items-center gap-1.5 sm:gap-2",
                   isDark ? "text-slate-100" : "text-slate-900",
                 )}
               >
@@ -212,7 +212,7 @@ export function AIAssistant() {
                   Gemini + RAG
                 </span>
               </h2>
-              <p className={cn("text-xs", isDark ? "text-slate-400" : "text-slate-500")}>
+              <p className={cn("text-xs hidden sm:block", isDark ? "text-slate-400" : "text-slate-500")}>
                 Your intelligent financial co-pilot
               </p>
             </div>
@@ -248,7 +248,7 @@ export function AIAssistant() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6 custom-scrollbar">
           {messages.map((msg: ChatMessage) => (
             <div key={msg.id}>
               {/* Chart messages */}
@@ -257,7 +257,7 @@ export function AIAssistant() {
               {/* Text messages */}
               {msg.content && (
                 <div className={cn("flex w-full", msg.role === "user" ? "justify-end" : "justify-start")}>
-                  <div className={cn("flex gap-4 max-w-[85%]", msg.role === "user" ? "flex-row-reverse" : "flex-row")}>
+                  <div className={cn("flex gap-2 sm:gap-4 max-w-[94%] sm:max-w-[85%]", msg.role === "user" ? "flex-row-reverse" : "flex-row")}>
                     <div
                       className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1",
@@ -280,7 +280,7 @@ export function AIAssistant() {
                     <div className="space-y-2">
                       <div
                         className={cn(
-                          "p-4 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap",
+                          "p-3 sm:p-4 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap",
                           msg.role === "user"
                             ? "text-white rounded-tr-sm"
                             : isDark
@@ -379,7 +379,7 @@ export function AIAssistant() {
         </div>
 
         {/* Input Area */}
-        <div className={cn("p-4 border-t", isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200")}>
+        <div className={cn("mobile-safe-bottom p-3 sm:p-4 border-t", isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200")}>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -393,7 +393,7 @@ export function AIAssistant() {
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask about your spending, run calculations, or get investment advice..."
               className={cn(
-                "w-full border rounded-xl pl-4 pr-12 py-3.5 text-sm focus:outline-none transition-all",
+                "w-full border rounded-xl pl-4 pr-12 py-3 text-sm focus:outline-none transition-all",
                 isDark
                   ? "bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-500 shadow-inner"
                   : "bg-slate-50 border-slate-200 text-slate-800 placeholder:text-slate-400",
@@ -403,13 +403,13 @@ export function AIAssistant() {
             <button
               type="submit"
               disabled={!input.trim() || isLoading}
-              className={cn("absolute right-2 p-2 rounded-lg transition-colors", "text-white")}
+              className={cn("absolute right-2 p-2.5 rounded-lg transition-colors", "text-white")}
               style={{ backgroundColor: !input.trim() || isLoading ? undefined : ac[600] }}
             >
               <Send className="h-4 w-4" />
             </button>
           </form>
-          <div className={cn("flex items-center justify-center gap-4 mt-3 text-[10px]", isDark ? "text-slate-500" : "text-slate-400")}>
+          <div className={cn("flex flex-wrap items-center justify-center gap-2 sm:gap-4 mt-3 text-[10px] text-center", isDark ? "text-slate-500" : "text-slate-400")}>
             <span className="flex items-center gap-1">
               <BrainCircuit className="h-3 w-3" /> Gemini Pro + RAG + MCP Tools
             </span>

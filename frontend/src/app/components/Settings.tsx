@@ -35,13 +35,13 @@ export function Settings() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6">
       <div>
         <h1 className={cn("text-2xl font-bold", isDark ? "text-slate-100" : "text-slate-900")}>Settings</h1>
         <p className={cn("text-sm mt-1", textSecondary)}>Configure your FinWise AI experience.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5 sm:gap-6">
         {/* Navigation */}
         <div className="md:col-span-1 space-y-1">
           {sections.map((sec) => (
@@ -67,7 +67,7 @@ export function Settings() {
         </div>
 
         {/* Content Area */}
-        <div className={cn("md:col-span-3 border rounded-2xl shadow-xl overflow-hidden p-6", cardBg)}>
+        <div className={cn("md:col-span-3 border rounded-2xl shadow-xl overflow-hidden p-4 sm:p-6", cardBg)}>
           
           {/* Profile Tab */}
           {activeTab === "profile" && (
@@ -77,7 +77,7 @@ export function Settings() {
                 <p className={cn("text-sm mt-1", textSecondary)}>Update your personal info and display preferences.</p>
               </div>
 
-              <div className="flex items-center gap-4 mb-6">
+              <div className="flex items-center gap-3 sm:gap-4 mb-6">
                 <div className="h-16 w-16 rounded-full flex items-center justify-center text-white text-xl font-bold" style={{ background: `linear-gradient(135deg, ${ac[600]}, ${ac[400]})` }}>JS</div>
                 <div>
                   <p className={cn("text-sm font-semibold", textPrimary)}>John Smith</p>
@@ -111,7 +111,7 @@ export function Settings() {
               </div>
 
               {/* Theme Toggle */}
-              <div className={cn("flex items-center justify-between py-4 border-y", sectionBorder)}>
+              <div className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4 border-y", sectionBorder)}>
                 <div className="flex items-center gap-3">
                   {isDark ? <Moon className="h-5 w-5" style={{ color: ac[400] }} /> : <Sun className="h-5 w-5 text-amber-500" />}
                   <div>
@@ -137,7 +137,7 @@ export function Settings() {
                   <h3 className={cn("text-sm font-medium", textPrimary)}>Color Theme</h3>
                   <p className={cn("text-xs mt-0.5", textSecondary)}>Choose an accent color for the interface</p>
                 </div>
-                <div className="grid grid-cols-7 gap-3">
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3">
                   {(Object.entries(accentPresets) as [AccentName, typeof accentPresets.indigo][]).map(([name, colors]) => (
                     <button
                       key={name}
@@ -206,7 +206,7 @@ export function Settings() {
               </div>
 
               <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h3 className={cn("text-sm font-medium", textPrimary)}>Sensitivity Level</h3>
                     <p className={cn("text-xs mt-1", textSecondary)}>Higher sensitivity may result in more false positives.</p>
@@ -221,7 +221,7 @@ export function Settings() {
                   </div>
                 </div>
 
-                <div className={cn("flex items-center justify-between py-4 border-y", sectionBorder)}>
+                <div className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4 border-y", sectionBorder)}>
                   <div>
                     <h3 className={cn("text-sm font-medium", textPrimary)}>Auto-block High Risk</h3>
                     <p className={cn("text-xs mt-1", textSecondary)}>Automatically block transactions with anomaly score {'>'} 0.95.</p>
@@ -229,7 +229,7 @@ export function Settings() {
                   <Toggle defaultChecked />
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h3 className={cn("text-sm font-medium", textPrimary)}>Geographic Anomalies</h3>
                     <p className={cn("text-xs mt-1", textSecondary)}>Flag transactions far from your usual locations.</p>
@@ -237,7 +237,7 @@ export function Settings() {
                   <Toggle defaultChecked />
                 </div>
 
-                <div className={cn("flex items-center justify-between py-4 border-t", sectionBorder)}>
+                <div className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4 border-t", sectionBorder)}>
                   <div>
                     <h3 className={cn("text-sm font-medium", textPrimary)}>Two-Factor Authentication</h3>
                     <p className={cn("text-xs mt-1", textSecondary)}>Add an extra layer of security to your account.</p>
@@ -276,7 +276,7 @@ export function Settings() {
                   { title: "Budget Threshold Alerts", desc: "Alert when category spending exceeds your set limit.", default: false },
                   { title: "LSTM Prediction Alerts", desc: "Get notified about predicted overspending or low balances.", default: true },
                 ].map((item, i) => (
-                  <div key={i} className={cn("flex items-center justify-between", i > 0 && cn("pt-5 border-t", sectionBorder))}>
+                  <div key={i} className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-3", i > 0 && cn("pt-5 border-t", sectionBorder))}>
                     <div>
                       <h3 className={cn("text-sm font-medium", textPrimary)}>{item.title}</h3>
                       <p className={cn("text-xs mt-1", textSecondary)}>{item.desc}</p>
@@ -313,7 +313,7 @@ export function Settings() {
                   { bank: "Chase Bank", type: "Checking", last4: "4829", connected: true },
                   { bank: "Wells Fargo", type: "Savings", last4: "7712", connected: true },
                 ].map((acc, i) => (
-                  <div key={i} className={cn("flex items-center justify-between p-4 rounded-xl border", isDark ? "bg-slate-800/40 border-slate-700/50" : "bg-slate-50 border-slate-200")}>
+                  <div key={i} className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border", isDark ? "bg-slate-800/40 border-slate-700/50" : "bg-slate-50 border-slate-200")}>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `rgba(${ac.rgb},0.1)`, color: ac[400], border: `1px solid rgba(${ac.rgb},0.2)` }}>
                         <CreditCard className="h-5 w-5" />
@@ -367,7 +367,7 @@ export function Settings() {
                   <input type="password" defaultValue="sk-••••••••••••••••" className={cn("w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-current/50 font-mono", inputBg)} />
                 </div>
 
-                <div className={cn("flex items-center justify-between py-4 border-y", sectionBorder)}>
+                <div className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4 border-y", sectionBorder)}>
                   <div>
                     <h3 className={cn("text-sm font-medium", textPrimary)}>RAG Context Window</h3>
                     <p className={cn("text-xs mt-1", textSecondary)}>How many months of data to include in AI context.</p>
@@ -382,7 +382,7 @@ export function Settings() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h3 className={cn("text-sm font-medium", textPrimary)}>LSTM Auto-Retrain</h3>
                     <p className={cn("text-xs mt-1", textSecondary)}>Automatically retrain the prediction model weekly.</p>

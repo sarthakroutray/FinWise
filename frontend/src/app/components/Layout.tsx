@@ -102,7 +102,7 @@ export function Layout() {
 
   return (
     <div className={cn(
-      "flex h-screen w-full overflow-hidden font-sans transition-colors duration-200",
+      "flex h-screen min-h-[100dvh] w-full overflow-hidden font-sans transition-colors duration-200",
       isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
     )}>
       {/* Mobile Sidebar Overlay */}
@@ -217,7 +217,7 @@ export function Layout() {
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {/* Header */}
         <header className={cn(
-          "h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b backdrop-blur-xl shrink-0 z-20",
+          "mobile-safe-top h-16 flex items-center justify-between px-3 sm:px-6 lg:px-8 border-b backdrop-blur-xl shrink-0 z-20",
           isDark ? "bg-slate-900/50 border-slate-800/50" : "bg-white/80 border-slate-200"
         )}>
           <button
@@ -255,7 +255,7 @@ export function Layout() {
             </kbd>
           </div>
 
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-1.5 sm:gap-2 ml-auto">
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
@@ -306,7 +306,7 @@ export function Layout() {
                     exit={{ opacity: 0, y: -8, scale: 0.95 }}
                     transition={{ duration: 0.15 }}
                     className={cn(
-                      "absolute right-0 top-12 w-80 sm:w-96 rounded-2xl border shadow-2xl overflow-hidden z-50",
+                      "absolute right-0 top-12 w-[calc(100vw-1rem)] max-w-sm sm:max-w-md rounded-2xl border shadow-2xl overflow-hidden z-50",
                       isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"
                     )}
                   >
@@ -360,7 +360,7 @@ export function Layout() {
         </header>
 
         {/* Page Content */}
-        <div className={cn("flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 custom-scrollbar", isDark ? "" : "bg-slate-50")}>
+        <div className={cn("mobile-safe-bottom flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 custom-scrollbar", isDark ? "" : "bg-slate-50")}>
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -378,11 +378,11 @@ export function Layout() {
         {location.pathname !== '/assistant' && (
           <Link
             to="/assistant"
-            className="absolute bottom-6 right-6 h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 text-white z-20 group"
+            className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 sm:right-6 h-12 w-12 sm:h-14 sm:w-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 text-white z-20 group"
             style={{ backgroundColor: ac[600], boxShadow: `0 10px 15px -3px rgba(${ac.rgb},0.3)` }}
           >
             <span className="absolute inset-0 rounded-full animate-ping opacity-20 group-hover:opacity-0" style={{ backgroundColor: ac[500] }}></span>
-            <MessageSquare className="h-6 w-6 relative z-10" />
+            <MessageSquare className="h-5 w-5 sm:h-6 sm:w-6 relative z-10" />
           </Link>
         )}
       </main>

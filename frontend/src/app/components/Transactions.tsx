@@ -92,17 +92,17 @@ export function Transactions() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="max-w-6xl mx-auto space-y-5 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <h1 className={cn("text-2xl font-bold", isDark ? "text-slate-100" : "text-slate-900")}>Transaction History</h1>
           <p className={cn("text-sm mt-1", textSecondary)}>Monitored by Isolation Forest Algorithm.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => setShowImportModal(true)}
             className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
+              "flex-1 sm:flex-none justify-center flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
             )}
             style={{
               backgroundColor: `rgba(${ac.rgb},0.1)`,
@@ -135,7 +135,7 @@ export function Transactions() {
               }
             }}
             className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
+              "flex-1 sm:flex-none justify-center flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
               isDark ? "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
             )}
           >
@@ -158,7 +158,7 @@ export function Transactions() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className={cn("w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden", isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200")}
+              className={cn("w-full max-w-lg max-h-[88dvh] rounded-2xl border shadow-2xl overflow-hidden", isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200")}
             >
               {/* Header */}
               <div className={cn("flex items-center justify-between px-6 py-4 border-b", isDark ? "border-slate-800" : "border-slate-100")}>
@@ -177,7 +177,7 @@ export function Transactions() {
               </div>
 
               {/* Body */}
-              <div className="px-6 py-5">
+              <div className="px-4 sm:px-6 py-5 overflow-y-auto max-h-[calc(88dvh-4.5rem)]">
                 {importStep === "select" && (
                   <div className="space-y-4">
                     <label className={cn(
@@ -202,7 +202,7 @@ export function Transactions() {
                       <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                       <span>PDF imports use OCR extraction. For best results, ensure your bank statement is clearly formatted.</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {[
                         { icon: FileSpreadsheet, label: "CSV", desc: "Comma-separated" },
                         { icon: FileSpreadsheet, label: "Excel", desc: ".xlsx / .xls" },
@@ -344,8 +344,8 @@ export function Transactions() {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className={cn("border-b text-xs uppercase tracking-wider", isDark ? "border-slate-800 text-slate-500 bg-slate-900/50" : "border-slate-100 text-slate-400 bg-slate-50/80")}>
@@ -488,10 +488,91 @@ export function Transactions() {
           </table>
         </div>
 
+        {/* Mobile Cards */}
+        <div className="md:hidden p-3 space-y-3">
+          {filtered.length === 0 && (
+            <div className={cn("px-3 py-10 text-center text-sm rounded-xl border", isDark ? "text-slate-500 border-slate-800" : "text-slate-400 border-slate-200")}>
+              No transactions found.
+            </div>
+          )}
+
+          {filtered.map(tx => (
+            <div
+              key={`mobile-${tx.id}`}
+              className={cn(
+                "rounded-xl border p-3",
+                isDark ? "border-slate-800 bg-slate-900/60" : "border-slate-200 bg-white",
+                tx.status === "anomaly" && (isDark ? "border-rose-900/50" : "border-rose-200")
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className={cn("text-sm font-semibold truncate", textPrimary)}>{tx.merchant}</p>
+                  <p className={cn("text-xs mt-0.5", textSecondary)}>{tx.date}</p>
+                </div>
+                <p className={cn("text-sm font-bold shrink-0", tx.amount > 0 ? "text-emerald-400" : textPrimary)}>
+                  {tx.amount > 0 ? "+" : "-"}{formatMoney(Math.abs(tx.amount), tx.currency || undefined)}
+                </p>
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className={cn("px-2 py-1 rounded-md text-[11px] border", isDark ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-slate-100 text-slate-600 border-slate-200")}>
+                  {tx.category}
+                </span>
+                {tx.status === "anomaly" ? (
+                  <span className="px-2 py-1 rounded-md bg-rose-500/10 text-rose-400 text-[11px] font-medium border border-rose-500/20">
+                    High Risk • {tx.score}
+                  </span>
+                ) : (
+                  <span className="px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 text-[11px] font-medium border border-emerald-500/20">
+                    Verified • {tx.score}
+                  </span>
+                )}
+              </div>
+
+              <button
+                onClick={() => setExpandedId(expandedId === tx.id ? null : tx.id)}
+                className="mt-3 text-xs font-medium flex items-center gap-1"
+                style={{ color: ac[400] }}
+              >
+                <ChevronDown className={cn("h-3 w-3 transition-transform", expandedId === tx.id && "rotate-180")} />
+                {expandedId === tx.id ? "Hide details" : "Show details"}
+              </button>
+
+              <AnimatePresence>
+                {expandedId === tx.id && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className={cn("mt-3 pt-3 border-t space-y-2", isDark ? "border-slate-800" : "border-slate-200")}>
+                      <p className={cn("text-xs", textSecondary)}><span className={cn("font-medium", textPrimary)}>Location:</span> {tx.location || "N/A"}</p>
+                      <p className={cn("text-xs leading-relaxed", textSecondary)}><span className={cn("font-medium", textPrimary)}>AI Analysis:</span> {tx.note}</p>
+                      {tx.status === "anomaly" && (
+                        <div className="pt-1 flex items-center gap-2">
+                          <button className="px-3 py-1.5 rounded-md bg-rose-500/10 text-rose-400 text-xs font-medium border border-rose-500/20 hover:bg-rose-500/20 transition-colors">
+                            Dispute
+                          </button>
+                          <button className="px-3 py-1.5 rounded-md bg-emerald-500/10 text-emerald-400 text-xs font-medium border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors">
+                            Mark Safe
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ))}
+        </div>
+
         {/* Pagination */}
-        <div className={cn("flex items-center justify-between px-6 py-3 border-t", isDark ? "border-slate-800" : "border-slate-100")}>
+        <div className={cn("flex items-center justify-between px-4 sm:px-6 py-3 border-t", isDark ? "border-slate-800" : "border-slate-100")}>
           <p className={cn("text-xs", textSecondary)}>Showing {filtered.length} of {transactions.length} transactions</p>
-          <div className="flex items-center gap-1">
+          <div className="hidden sm:flex items-center gap-1">
             {[1, 2, 3].map(p => (
               <button key={p} className={cn(
                 "w-8 h-8 rounded-md text-xs font-medium transition-colors",
