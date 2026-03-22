@@ -76,7 +76,7 @@ export interface DocumentCreatePayload {
 
 // ─── API functions ────────────────────────────────────────────────────────
 
-const BASE = import.meta.env.VITE_API_BASE || "/api";
+const BASE = "https://mayank-96615--finwise-backend-fastapi-app.modal.run";
 
 export async function analyzeFile(
   file: File,
