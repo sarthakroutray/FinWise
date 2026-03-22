@@ -64,7 +64,7 @@ def init_chat_services(
     flash1: Union[GeminiClient, GroqClient],
     flash2: Union[GeminiClient, GroqClient],
     session_mgr: SessionManager,
-    rag_index: LLMRagIndex,
+    rag_index: Union[LLMRagIndex, None],
 ) -> None:
     """Called from app lifespan to inject dependencies."""
     global _pro_client, _flash_client_1, _flash_client_2, _session_mgr, _rag_index
@@ -141,17 +141,19 @@ async def _stream_response(req: ChatRequest):
         # Ensure scratchpad exists
         if session.scratchpad is None:
             session.scratchpad = ScratchpadDB(req.session_id)
-            try:
-                import os
-                import pandas as pd
-                csv_path = os.path.join(os.path.dirname(config.__file__), "../../test_data.csv")
-                if os.path.exists(csv_path):
-                    df = pd.read_csv(csv_path)
+            
+            # Dynamically pull the transaction dataframe that was populated during POST /analyze
+            from app.services import rag_pipeline
+            if getattr(rag_pipeline, "_last_df", None) is not None:
+                try:
+                    df = rag_pipeline._last_df
                     session.scratchpad.load_transactions(df)
+                    
+                    # ALSO build the chatbot's separate LLMRagIndex with embeddings
                     if _rag_index and not _rag_index.is_ready:
                         await _rag_index.build_from_dataframe(df)
-            except Exception as e:
-                logger.error("Failed to load test_data.csv: %s", e)
+                except Exception as e:
+                    logger.error("Failed to inject uploaded transactions into chat: %s", e)
 
         # RAG retrieval
         rag_chunks: list[str] = []
@@ -228,11 +230,32 @@ async def _run_normal(req: ChatRequest, session, rag_chunks: list[str], trace: d
                 scratchpad=session.scratchpad,
             )
 
-            yield _sse_event("tool_result", tool_result)
-
-            # If it's a chart, send a separate chart event
-            if tool_result.get("component_type") == "dynamic_chart":
+            # If it's a chart, we yield chart and STOP. The visual covers the answer.
+            if isinstance(tool_result, dict) and tool_result.get("component_type") == "dynamic_chart":
                 yield _sse_event("chart", tool_result)
+                session.add_message("assistant", f"Generated chart: {event.data}")
+                break
+                
+            # Otherwise, yield the tool result internally and FEED IT BACK TO THE LLM!
+            yield _sse_event("tool_result", tool_result)
+            
+            # Agentic follow-up turn
+            msg_history = list(messages)
+            msg_history.append({"role": "assistant", "content": f"[Invoked tool {event.data} with args {json.dumps(event.metadata.get('args', {}))}]"})
+            msg_history.append({"role": "user", "content": f"Tool result for {event.data}:\n```json\n{json.dumps(tool_result, default=str)}\n```\n\nPlease interpret this data and formulate a helpful text response for me."})
+            
+            async for followup in _pro_client.stream_chat(
+                msg_history,
+                system_prompt=system_prompt,
+                tools=None,  # No recursive infinite tool calling for now
+                temperature=0.7,
+            ):
+                if followup.kind == "token":
+                    full_response += followup.data
+                    yield _sse_event("token", {"text": followup.data})
+            
+            # Only allow one tool call turn in this basic implementation
+            break
 
         elif event.kind == "error":
             yield _sse_event("error", {"message": event.data})

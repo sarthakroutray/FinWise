@@ -10,6 +10,7 @@ import {
 import { useTheme } from "../ThemeProvider";
 import { cn } from "../../utils";
 import type { ChartConfig } from "../../store/useChatStore";
+import { MarkdownRenderer } from "../MarkdownRenderer";
 
 const COLORS = ["#6366f1", "#06b6d4", "#f59e0b", "#10b981", "#f43f5e", "#8b5cf6", "#ec4899", "#14b8a6"];
 
@@ -135,10 +136,10 @@ export function DynamicChart({ config }: Props) {
       </div>
       {latex_formula && (
         <div className={cn(
-          "mt-3 px-3 py-2 rounded-lg font-mono text-xs overflow-x-auto",
-          isDark ? "bg-slate-900/60 text-slate-300" : "bg-white text-slate-600 border border-slate-200"
+          "mt-3 px-3 py-2 rounded-lg text-sm",
+          isDark ? "bg-slate-900/60" : "bg-white border"
         )}>
-          {latex_formula}
+          <MarkdownRenderer content={latex_formula} />
         </div>
       )}
     </div>

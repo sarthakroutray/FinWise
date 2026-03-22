@@ -46,16 +46,20 @@ def init_llm_services() -> None:
         import logging
         logging.warning("No Gemini API keys found in config! Operations will fail.")
 
-    # RAG index gets the pure Gemini client
-    gemini_embedding_client = GeminiClient(
-        api_keys=active_keys,
-        model=config.GEMINI_EMBEDDING_MODEL,
-    )
+    # RAG index gets the pure Gemini client, if keys are available
+    if active_keys:
+        gemini_embedding_client = GeminiClient(
+            api_keys=active_keys,
+            model=config.GEMINI_EMBEDDING_MODEL,
+        )
+        llm_rag_index = LLMRagIndex(gemini_embedding_client)
+    else:
+        llm_rag_index = None
     
     # Use Groq for chatbot unconditionally
     groq_api_key = config.GROQ_API_KEY
     if not groq_api_key:
-        groq_api_key = active_keys[0] if active_keys else ""
+        groq_api_key = active_keys[0] if active_keys else "dummy_key_to_allow_startup"
         
     chat_pro_client = GroqClient(
         api_keys=groq_api_key,
@@ -71,4 +75,3 @@ def init_llm_services() -> None:
     )
 
     session_manager = SessionManager(ttl_seconds=3600 * 4)
-    llm_rag_index = LLMRagIndex(gemini_embedding_client)

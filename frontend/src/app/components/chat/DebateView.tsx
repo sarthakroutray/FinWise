@@ -6,8 +6,8 @@ import { useTheme } from "../ThemeProvider";
 import { useChatStore } from "../../store/useChatStore";
 import { MarkdownRenderer } from "../MarkdownRenderer";
 
-const cleanText = (text: string) => {
-  return text.replace(/```json\s*\{[\s\S]*?"confidence"[\s\S]*?\}\s*```/g, "").trim();
+export const cleanText = (text: string) => {
+  return text.replace(/(?:```json\s*)?\{[\s\S]*?"confidence"[\s\S]*?\}(?:\s*```)?/g, "").trim();
 };
 
 export function DebateView() {

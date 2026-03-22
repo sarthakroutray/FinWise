@@ -75,6 +75,7 @@ interface ChatStore {
   appendVerdictText: (text: string) => void;
   setAgentConfidence: (agent: string, score: number) => void;
   endDebate: () => void;
+  clearDebate: () => void;
 
   // Chart
   addChart: (config: ChartConfig) => void;
@@ -184,6 +185,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   endDebate: () =>
     set((s) => ({ debate: { ...s.debate, isActive: false, phase: "done" } })),
+    
+  clearDebate: () =>
+    set((s) => {
+      // If a debate was previously completed, save its contents to chat history before destroying it
+      if (s.debate.phase === "done") {
+        const debateSummary = `**[Debate Concluded]**\n\n**PennyWise (Saver):**\n${s.debate.saverText}\n\n**BullRun (Investor):**\n${s.debate.investorText}\n\n**Arbiter Verdict:**\n${s.debate.verdictText}`;
+        const newMsgs = [...s.messages, { id: "deb-" + Date.now(), role: "assistant" as const, content: debateSummary }];
+        return { debate: { ...defaultDebate }, messages: newMsgs };
+      }
+      return { debate: { ...defaultDebate } };
+    }),
 
   // ── Chart ──────────────────────────────────────────────────────────
   addChart: (config) =>
