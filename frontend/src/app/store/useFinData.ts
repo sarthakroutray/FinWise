@@ -2,6 +2,30 @@ import React, { createContext, useContext, useState, useCallback } from "react";
 import { analyzeFile, createDocumentRecord, type AnalyzeResponse } from "../services/api";
 import { getFirebaseIdToken } from "../auth/firebase";
 
+const FIN_DATA_STORAGE_KEY = "finwise:lastAnalyzeResponse";
+
+function loadStoredFinData(): AnalyzeResponse | null {
+  try {
+    const raw = localStorage.getItem(FIN_DATA_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as AnalyzeResponse;
+  } catch {
+    return null;
+  }
+}
+
+function persistFinData(data: AnalyzeResponse | null): void {
+  try {
+    if (!data) {
+      localStorage.removeItem(FIN_DATA_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(FIN_DATA_STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // Ignore storage errors (private mode/quota limits)
+  }
+}
+
 interface FinDataState {
   data: AnalyzeResponse | null;
   isLoading: boolean;
@@ -14,7 +38,7 @@ interface FinDataState {
 const FinDataContext = createContext<FinDataState | null>(null);
 
 export function FinDataProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<AnalyzeResponse | null>(null);
+  const [data, setData] = useState<AnalyzeResponse | null>(() => loadStoredFinData());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,6 +48,7 @@ export function FinDataProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await analyzeFile(file, userId);
       setData(result);
+      persistFinData(result);
 
       // Best-effort metadata persistence for authenticated users.
       const idToken = await getFirebaseIdToken();
@@ -61,6 +86,7 @@ export function FinDataProvider({ children }: { children: React.ReactNode }) {
       const api = await import("../services/api");
       const result = await api.analyzeTestDataset(userId);
       setData(result);
+      persistFinData(result);
 
       // Best-effort metadata persistence for authenticated users.
       const idToken = await getFirebaseIdToken();
@@ -93,6 +119,7 @@ export function FinDataProvider({ children }: { children: React.ReactNode }) {
   const clearData = useCallback(() => {
     setData(null);
     setError(null);
+    persistFinData(null);
   }, []);
 
   return React.createElement(
