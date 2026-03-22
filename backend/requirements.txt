@@ -163,3 +163,4 @@ weasel==0.4.3
 websockets==16.0
 wheel==0.46.3
 wrapt==2.1.2
+modal

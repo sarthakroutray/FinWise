@@ -7,6 +7,7 @@ interface FinDataState {
   isLoading: boolean;
   error: string | null;
   uploadFile: (file: File, userId?: string) => Promise<void>;
+  loadTestDataset: (userId?: string) => Promise<void>;
   clearData: () => void;
 }
 
@@ -52,6 +53,43 @@ export function FinDataProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const loadTestDataset = useCallback(async (userId?: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // dynamically import to map exactly to the updated api.ts
+      const api = await import("../services/api");
+      const result = await api.analyzeTestDataset(userId);
+      setData(result);
+
+      // Best-effort metadata persistence for authenticated users.
+      const idToken = await getFirebaseIdToken();
+      if (idToken) {
+        try {
+          await api.createDocumentRecord(idToken, {
+            filename: "usa_paypal_statement.pdf",
+            mime_type: "application/pdf",
+            metadata: {
+              size_bytes: 45000,
+              analyzed_at: new Date().toISOString(),
+              transactions_count: result.transactions.length,
+              anomalies_count: result.anomalies.length,
+              health_score: result.health_score.score,
+              extraction_meta: result.extraction_meta,
+            },
+          });
+        } catch (persistError) {
+          console.warn("Document metadata persistence skipped:", persistError);
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || "Test Dataset Analysis failed");
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const clearData = useCallback(() => {
     setData(null);
     setError(null);
@@ -59,7 +97,7 @@ export function FinDataProvider({ children }: { children: React.ReactNode }) {
 
   return React.createElement(
     FinDataContext.Provider,
-    { value: { data, isLoading, error, uploadFile, clearData } },
+    { value: { data, isLoading, error, uploadFile, loadTestDataset, clearData } },
     children
   );
 }

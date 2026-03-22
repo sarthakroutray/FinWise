@@ -94,6 +94,17 @@ export async function analyzeFile(
   return res.json();
 }
 
+export async function analyzeTestDataset(
+  userId: string = "default"
+): Promise<AnalyzeResponse> {
+  const res = await fetch(`${BASE}/analyze/test`, { method: "POST" });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Analyze Test Dataset failed (${res.status}): ${text}`);
+  }
+  return res.json();
+}
+
 export async function queryRAG(
   question: string,
   use_rlm: boolean = false,
